@@ -1,0 +1,137 @@
+# Skills Profile
+#
+# Independent skill suggestions for each workflow step.
+# Schemas reference this file; edit skills freely without changing schema.yaml.
+#
+# ## How to Use
+#
+# 1. Add entries under `suggestions:` using key format:
+#    `schema-id.artifact-id` (e.g., spec-driven-enhanced.tasks)
+#    `exploration` for the /opsx:explore step
+#
+# 2. Each entry: name, source (community/local/built-in), url (for community),
+#    when (before_creation/after_creation/during), description
+#
+# 3. Skills are SUGGESTIONS only — AI or user decides whether to load them
+#
+# 4. This file changes independently of schema.yaml — experiment freely
+#
+# ## UX Reminder
+#
+# When presenting skill choices to the user, always include
+# "None — skip skill loading" and "Other — write your own" as options.
+
+suggestions:
+  # Evaluate-scale — diagnostic read-only assessment
+  mvp-evaluate-scale:
+    - name: mvp-evaluate-scale
+      source: local
+      when: during
+      description: "Diagnose project scale using filesystem signals + user interview"
+
+  # Exploration — when using /opsx:explore
+  exploration:
+    - name: grill-me
+      source: community
+      when: during
+      description: "Rigorously challenge ideas, assumptions, and scope"
+
+    - name: brainstorm
+      source: community
+      when: during
+      description: "Explore alternative approaches before committing"
+
+  # project-profile schema
+  project-profile.proposal:
+    - name: brainstorm
+      source: community
+      when: before_creation
+      description: "Explore alternative approaches before committing"
+
+    # Example: local skill from .opencode/skills/my-reviewer
+    # - name: my-reviewer
+    #   source: local
+    #   when: after_creation
+    #   description: "Internal architecture review checklist"
+
+    # Example: built-in OpenSpec skill
+    # - name: explore
+    #   source: built-in
+    #   when: before_creation
+    #   description: "Explore the problem space before proposing"
+
+  project-profile.constitution:
+    - name: security-audit
+      source: community
+      when: after_creation
+      description: "Review constitution for security policy gaps"
+
+  # epic schema
+  epic.epic:
+    - name: brainstorm
+      source: community
+      when: before_creation
+      description: "Explore initiative scope and slice boundaries"
+
+  # vertical-slice schema
+  vertical-slice.slice-proposal:
+    - name: grill-me
+      source: community
+      when: after_creation
+      description: "Challenge whether this slice is correctly scoped"
+
+  vertical-slice.change-manifest:
+    - name: system-design
+      source: community
+      when: after_creation
+      description: "Review contract stubs for completeness"
+
+  # spec-driven-enhanced schema
+  spec-driven-enhanced.proposal:
+    - name: grill-me
+      source: community
+      when: after_creation
+      description: "Challenge scope boundaries and assumptions"
+
+  spec-driven-enhanced.design:
+    - name: system-design
+      source: community
+      when: after_creation
+      description: "Review design for architectural soundness"
+
+  spec-driven-enhanced.tasks:
+    - name: tdd
+      source: community
+      when: during
+      description: "Write tests before implementation"
+
+  spec-driven-enhanced.verification:
+    - name: security-audit
+      source: community
+      when: during
+      description: "Verify no security regressions"
+
+  # external-ingest schema
+  external-ingest.gap-analysis:
+    - name: system-design
+      source: community
+      when: after_creation
+      description: "Review integration risks from a system design perspective"
+
+  # project-upgrade schema
+  project-upgrade.upgrade-plan:
+    - name: system-design
+      source: community
+      when: during
+      description: "Review migration plan for architectural soundness"
+
+  project-upgrade.upgrade-verification:
+    - name: grill-me
+      source: community
+      when: after_creation
+      description: "Challenge whether the upgrade truly passed all checks"
+  code-to-spec.reverse-engineering:
+    - name: code-review
+      source: community
+      when: during
+      description: "Review code for behavioral patterns"

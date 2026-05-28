@@ -1,0 +1,15 @@
+tmp/
+temp/
+reference/
+
+opencode.json
+.opencode/*
+!.opencode/skills/
+!.opencode/commands/
+
+.codex/*
+!.codex/skills/
+
+.claude/*
+!.claude/commands/
+!.claude/skills/
