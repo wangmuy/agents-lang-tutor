@@ -6,6 +6,7 @@ opencode.json
 .opencode/*
 !.opencode/skills/
 !.opencode/commands/
+!.opencode/plugin/
 
 .codex/*
 !.codex/skills/
