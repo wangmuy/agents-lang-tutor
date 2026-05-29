@@ -4,6 +4,48 @@ import * as path from "path"
 import * as fs from "fs"
 
 // ---------------------------------------------------------------------------
+// File-based logger
+// ---------------------------------------------------------------------------
+
+const LOG_FILE = path.join(os.tmpdir(), "lang-tutor.log")
+
+enum LogLevel {
+  DEBUG = "DEBUG",
+  INFO = "INFO",
+  WARN = "WARN",
+  ERROR = "ERROR",
+}
+
+function log(level: LogLevel, message: string, data?: unknown): void {
+  const timestamp = new Date().toISOString()
+  const serialized = data instanceof Error
+    ? { name: data.name, message: data.message, stack: data.stack?.split("\n").slice(0, 4).join("|") }
+    : data
+  const dataStr = serialized !== undefined ? " " + JSON.stringify(serialized) : ""
+  const line = `[${timestamp}] [${level}] ${message}${dataStr}\n`
+  fs.appendFileSync(LOG_FILE, line, "utf-8")
+  if (level === LogLevel.ERROR) {
+    console.error(`[lang-tutor] ${message}`, data ?? "")
+  }
+}
+
+// Rotate log file if it exceeds 5MB
+function ensureLogSize(): void {
+  try {
+    const stat = fs.statSync(LOG_FILE)
+    if (stat.size > 5 * 1024 * 1024) {
+      fs.renameSync(LOG_FILE, LOG_FILE + ".old")
+      log(LogLevel.INFO, "Log rotated (exceeded 5MB)")
+    }
+  } catch {
+    // File doesn't exist yet, fine
+  }
+}
+
+ensureLogSize()
+log(LogLevel.INFO, "Plugin loaded")
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -53,19 +95,31 @@ function readOpencodeConfig(worktree: string): OpencodeConfig | null {
   const projectPath = path.join(worktree, "opencode.json")
   const homePath = path.join(os.homedir(), ".config", "opencode", "opencode.json")
 
+  log(LogLevel.DEBUG, "readOpencodeConfig", { worktree, homePath, projectPath })
+
   let homeConfig: OpencodeConfig = {}
   let projectConfig: OpencodeConfig = {}
 
   if (fs.existsSync(homePath)) {
     try {
       homeConfig = JSON.parse(fs.readFileSync(homePath, "utf-8"))
-    } catch { /* ignore */ }
+      log(LogLevel.DEBUG, "Home config loaded", { homePath })
+    } catch {
+      log(LogLevel.WARN, "Failed to parse home config", { homePath })
+    }
+  } else {
+    log(LogLevel.DEBUG, "Home config not found", { homePath })
   }
 
   if (fs.existsSync(projectPath)) {
     try {
       projectConfig = JSON.parse(fs.readFileSync(projectPath, "utf-8"))
-    } catch { /* ignore */ }
+      log(LogLevel.DEBUG, "Project config loaded", { projectPath })
+    } catch {
+      log(LogLevel.WARN, "Failed to parse project config", { projectPath })
+    }
+  } else {
+    log(LogLevel.DEBUG, "Project config not found", { projectPath })
   }
 
   const merged: OpencodeConfig = {
@@ -77,7 +131,9 @@ function readOpencodeConfig(worktree: string): OpencodeConfig | null {
     },
   }
 
-  return Object.keys(merged).length > 0 ? merged : null
+  const hasContent = Object.keys(merged).length > 0
+  log(LogLevel.DEBUG, "Config merged", { hasContent })
+  return hasContent ? merged : null
 }
 
 function resolveEnvVars(value: string): string {
@@ -89,15 +145,23 @@ function resolveProviderConfig(
   modelID: string,
 ): ProviderConfig | null {
   const providers = config.provider
-  if (!providers) return null
+  if (!providers) {
+    log(LogLevel.WARN, "No providers found in config")
+    return null
+  }
 
-  for (const [, providerConfig] of Object.entries(providers)) {
+  for (const [providerName, providerConfig] of Object.entries(providers)) {
     const models = providerConfig.models
     if (models && modelID in models) {
       const options = providerConfig.options
-      if (!options?.baseURL) return null
+      if (!options?.baseURL) {
+        log(LogLevel.WARN, "Provider has no baseURL", { providerName, modelID })
+        return null
+      }
 
       const apiKey = options.apiKey ? resolveEnvVars(options.apiKey) : ""
+      const hasKey = !!apiKey
+      log(LogLevel.DEBUG, "Provider resolved", { providerName, modelID, baseURL: options.baseURL, hasKey })
       return {
         baseURL: options.baseURL,
         apiKey,
@@ -105,6 +169,7 @@ function resolveProviderConfig(
     }
   }
 
+  log(LogLevel.WARN, "Model not found in any provider", { modelID })
   return null
 }
 
@@ -145,8 +210,11 @@ function loadFrancMin(): boolean {
   try {
     const m = require("franc-min") as { franc: (text: string, options?: { minLength?: number }) => string }
     francMin = m.franc ?? m.default?.franc ?? m.default
-    return !!francMin
-  } catch {
+    const loaded = !!francMin
+    log(LogLevel.DEBUG, "franc-min loaded", { loaded })
+    return loaded
+  } catch (e) {
+    log(LogLevel.ERROR, "Failed to load franc-min", e)
     return false
   }
 }
@@ -206,6 +274,8 @@ async function fetchTip(
     temperature: 0.3,
   })
 
+  log(LogLevel.DEBUG, "fetchTip: sending request", { url, modelID, userTextLength: userText.length })
+
   const response = await fetch(url, {
     method: "POST",
     headers,
@@ -213,14 +283,23 @@ async function fetchTip(
     signal,
   })
 
-  if (!response.ok) return null
+  if (!response.ok) {
+    log(LogLevel.WARN, "fetchTip: non-OK response", { status: response.status, statusText: response.statusText })
+    return null
+  }
 
-  const data = (await response.json()) as {
+  log(LogLevel.DEBUG, "fetchTip: response OK", { status: response.status })
+
+  const rawData = await response.text()
+  log(LogLevel.DEBUG, "fetchTip: raw response body", { rawData: rawData.slice(0, 300) })
+  const data = JSON.parse(rawData) as {
     choices?: Array<{ message?: { content?: string } }>
   }
 
   const content = data.choices?.[0]?.message?.content
-  return content?.trim() || null
+  const trimmed = content?.trim() || null
+  log(LogLevel.DEBUG, "fetchTip: response content", { hasContent: !!trimmed, preview: trimmed?.slice(0, 60) })
+  return trimmed
 }
 
 // ---------------------------------------------------------------------------
@@ -289,56 +368,108 @@ class TipsQueue {
 // ---------------------------------------------------------------------------
 
 const tipsQueue = new TipsQueue()
+const processedMessages = new Set<string>()
 
 export const LangTutorPlugin: Plugin = async (ctx) => {
   return {
-    "chat.message": async (input, output) => {
-      const message = output.message
-      if (message.role !== "user" || !message.content) return
+    event: async ({ event }) => {
+      if (event.type !== "message.updated") return
 
-      const content = typeof message.content === "string"
-        ? message.content
-        : Array.isArray(message.content)
-          ? message.content.map((p: { text?: string }) => p.text ?? "").join("")
-          : ""
+      const props = event.properties as {
+        sessionID?: string
+        info?: {
+          role?: string
+          id?: string
+          time?: { created?: number }
+          summary?: unknown
+        }
+      }
+      const info = props?.info
+      if (!info || info.role !== "user") return
 
-      if (!content) return
+      const messageID = info.id
+      const sessionID = props.sessionID
+      if (!messageID || !sessionID) return
+
+      // Only process messages that have summary (second fire, post-assistant response)
+      if (!info.summary) return
+
+      // Avoid re-processing the same message
+      if (processedMessages.has(messageID)) return
+      processedMessages.add(messageID)
+
+      log(LogLevel.INFO, "event: user message updated, fetching content", { messageID, sessionID })
 
       // Re-read config on every message for dynamic enable/disable
       const rawConfig = readOpencodeConfig(ctx.worktree)
-      if (!rawConfig) return
-
-      const pluginOpts = resolvePluginOptions(rawConfig)
-
-      // enabled check
-      if (pluginOpts.enabled === false) return
-
-      // Layer 1: language detection gate
-      const stripped = stripCodeBlocks(content)
-      if (wordCount(stripped) >= 10 && pluginOpts.nativeLanguages?.length) {
-        const lang = detectLanguage(content)
-        if (lang !== "und" && isNativeLanguage(lang, pluginOpts.nativeLanguages)) {
-          return
-        }
+      if (!rawConfig) {
+        log(LogLevel.WARN, "event: no config found, skipping")
+        return
       }
 
-      // Resolve model: tipModel option overrides active model
-      const modelID = pluginOpts.tipModel ?? input.model?.modelID ?? rawConfig.model
-      if (!modelID) return
+      const pluginOpts = resolvePluginOptions(rawConfig)
+      if (pluginOpts.enabled === false) {
+        log(LogLevel.DEBUG, "event: plugin disabled via config")
+        return
+      }
 
-      const providerID = input.model?.providerID
-      if (!providerID) return
+      const modelID = pluginOpts.tipModel ?? rawConfig.model
+      if (!modelID) {
+        log(LogLevel.WARN, "event: no model ID resolved, skipping")
+        return
+      }
 
       const providerConfig = resolveProviderConfig(rawConfig, modelID)
-      if (!providerConfig) return
+      if (!providerConfig) {
+        log(LogLevel.WARN, "event: provider config resolution failed, skipping")
+        return
+      }
 
-      const systemPrompt = buildSystemPrompt(pluginOpts.forcedLanguage)
-
-      // Queue the async tip request
+      // Queue the async tip request — content fetched inside
       tipsQueue.enqueue(
-        input.sessionID,
+        sessionID,
         async (signal) => {
           try {
+            // Fetch user message content via SDK
+            log(LogLevel.DEBUG, "event: fetching message via SDK", { messageID, sessionID })
+            let userContent = ""
+            try {
+              // Fetch all messages in session, find user message by ID
+              const msgsResult = await (ctx.client.session.messages as (args: {
+                path: { id: string }
+              }) => Promise<unknown>)({
+                path: { id: sessionID },
+              })
+              log(LogLevel.DEBUG, "event: SDK sessions.messages raw", { keys: Object.keys(msgsResult as object), json: JSON.stringify(msgsResult).slice(0, 800) })
+
+              const msgs = (msgsResult as { data?: Array<{ info?: { id?: string; role?: string }; parts?: Array<{ type?: string; text?: string }> }> }).data ?? []
+              for (const msg of msgs) {
+                if (msg.info?.id === messageID) {
+                  const parts = msg.parts ?? []
+                  for (const part of parts) {
+                    if (part.type === "text" && part.text) {
+                      userContent += part.text
+                    }
+                  }
+                  break
+                }
+              }
+              log(LogLevel.DEBUG, "event: SDK fetch result", { contentLength: userContent.length, messagesCount: msgs.length, foundMessage: !!msgs.find(m => m.info?.id === messageID) })
+            } catch (e) {
+              log(LogLevel.ERROR, "event: SDK message fetch failed", e)
+              return null
+            }
+
+            if (!userContent) {
+              log(LogLevel.DEBUG, "event: no user content, skipping tip")
+              return null
+            }
+
+            const stripped = stripCodeBlocks(userContent)
+            const systemPrompt = buildSystemPrompt(pluginOpts.forcedLanguage)
+
+            log(LogLevel.INFO, "event: fetching tip", { modelID, contentLength: userContent.length })
+
             const tip = await fetchTip(
               providerConfig.baseURL,
               providerConfig.apiKey,
@@ -348,14 +479,20 @@ export const LangTutorPlugin: Plugin = async (ctx) => {
               signal,
             )
 
-            if (!tip || isOKResponse(tip)) return null
+            if (!tip || isOKResponse(tip)) {
+              log(LogLevel.DEBUG, "event: no actionable tip (null or [OK])", { tip })
+              return null
+            }
 
-            await displayTip(ctx.client, input.sessionID, tip)
+            log(LogLevel.INFO, "event: displaying tip", { tip })
+            await displayTip(ctx.client, sessionID, tip)
             return tip
           } catch (err) {
-            // AbortError is expected during rapid-fire, don't log
-            if (err instanceof Error && err.name === "AbortError") return null
-            console.error("[lang-tutor] Tip request failed:", err)
+            if (err instanceof Error && err.name === "AbortError") {
+              log(LogLevel.DEBUG, "tip: aborted (rapid-fire)")
+              return null
+            }
+            log(LogLevel.ERROR, "Tip request failed", err)
             return null
           }
         },
