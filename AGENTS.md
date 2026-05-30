@@ -22,6 +22,7 @@ Each agent gets its own plugin directory with a self-contained implementation ad
 - **LLM API:** varies per agent — OpenCode uses OpenAI-compatible `/chat/completions`, Claude Code uses Anthropic Messages API, others TBD
 - **No build step** — agents load TypeScript/JavaScript directly
 - **No test runner available** — bun not in PATH, no node test setup. Tests exist at `.opencode/plugin/lang-tutor/stripCodeBlocks.test.ts` but cannot be executed
+- **Hook:** OpenCode uses `tool.execute.before` (not `event` or `message.updated`, which don't fire reliably)
 
 ## OpenCode
 
