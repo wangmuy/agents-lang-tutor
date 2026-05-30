@@ -1,20 +1,185 @@
-schema: spec-driven
+# OpenSpec Project Configuration
+#
+# Scale selection guide:
+#   Sketch:    stock spec-driven — for simple ideas with unclear scope
+#              set schema: spec-driven
+#   Blueprint: project-profile + spec-driven-enhanced — scope is crystallizing
+#              set schema: spec-driven-enhanced
+#   Modular:   + epic + vertical-slice — multiple independent workstreams
+#              set schema: spec-driven-enhanced
+#   Ecosystem: + external-ingest + code-to-spec — multiple repos, vendors
+#              set schema: spec-driven-enhanced
+#
+# Default schema for this project:
+# To evaluate or re-evaluate your project's scale, run:
+#   /mvp:evaluate-scale
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+schema: spec-driven-enhanced
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+context: |
+  This project uses the custom multi-scale SDD schema architecture.
+  Canonical reference: openspec/WORKFLOW.md (zoom model, bootstrap, walkthrough)
+
+  ## Fresh Project Bootstrap
+
+  At the start of any session, check if the project has been bootstrapped:
+
+  ```bash
+  ls openspec/project/profile.md 2>/dev/null && HAS_PROFILE=true || HAS_PROFILE=false
+  ls AGENTS.md CLAUDE.md 2>/dev/null && HAS_INSTRUCTIONS=true || HAS_INSTRUCTIONS=false
+  ```
+
+  If `HAS_PROFILE=false` OR `HAS_INSTRUCTIONS=false`, this project is
+  not fully bootstrapped. At the START of the session, offer to help:
+
+  ```
+  I notice this project is missing some setup:
+
+  <if HAS_PROFILE=false>
+    ✗ No project-profile (governance rules, architecture canvas)
+       → Run `/mvp:evaluate-scale` — I'll explore your idea and
+         help create one from our conversation.
+  </if>
+
+  <if HAS_INSTRUCTIONS=false>
+    ✗ No AGENTS.md/CLAUDE.md (AI agent instructions)
+       → Run `/init` in OpenCode, or I can create one now.
+       This helps all AI agents understand your project conventions.
+  </if>
+
+  Want me to help set these up, or would you rather jump into what
+  you're working on?
+  ```
+
+  Present this ONCE at session start. If the user declines, drop it
+  and proceed to their actual request.
+
+  **AGENTS.md creation**: Prefer `/init` (OpenCode native). If unavailable,
+  create `CLAUDE.md` with: project one-liner, tech stack, code conventions,
+  testing approach, and key architectural patterns.
+
+  **IMPORTANT**: The generated AGENTS.md/CLAUDE.md MUST mention that this
+  project uses the MVP Multi-Scale Spec-Driven Development schema system.
+  Include a brief section like:
+
+  ```
+  ## Spec-Driven Development (MVP Multi-Scale)
+
+  This project uses the mvp-schemas custom SDD system. Key commands:
+  - `/mvp:evaluate-scale` — assess project scale + bootstrap
+  - `/opsx:explore` — explore ideas and crystallize into proposals
+  - `/opsx:propose` — create change proposals with full artifacts
+  - `/opsx:apply` — implement tasks from a change
+  - `/opsx:archive` — archive completed changes
+
+  Reference: openspec/WORKFLOW.md (zoom model, bootstrap, walkthrough)
+  ```
+
+  ## Project Scale Selection
+
+  Scale is about PROJECT AMBITION, not team size. A solo dev with AI
+  agents operates at any scale. Choose based on scope complexity:
+
+  ```
+  Sketch     — A simple idea, vague scope, 1-2 changes at a time.
+               Schemas: stock spec-driven
+               explorer: scale assessment only
+               Signal threshold: 1-2 work streams, monorepo, no external vendors
+
+  Blueprint  — Scope is crystallizing, need identity and governance.
+               Schemas: project-profile + spec-driven-enhanced + skills-profile
+               explorer: full fit-level recommendation
+               Signal threshold: 2-5 work streams, may have multiple modules
+
+  Modular    — Multiple independent workstreams, need epic/slice decomposition.
+               Schemas: + epic + vertical-slice
+               explorer: full fit-level recommendation
+               Signal threshold: 5-12 work streams, polyrepo likely, external vendors
+
+  Ecosystem  — Multiple repos, teams, or external vendors. Full SDD stack.
+               Schemas: + external-ingest + code-to-spec
+               explorer: full fit-level recommendation
+               Signal threshold: 12+ work streams, polyrepo, multi-vendor, multi-team
+  ```
+
+  ## Scale Assessment Signals
+
+  When running /mvp:evaluate-scale, the following signals are used to
+  determine the recommended scale:
+
+  **Primary signal** — work stream count:
+    work_streams = max(active_changes, active_epics + changes,
+                       human_contributors + ai_agents)
+
+  **Modifier signals** (adjust candidate up/down):
+    - polyrepo (>= 2 repos)                 → +1
+    - external vendors >= 3                 → +1
+    - multi-team                            → +1
+    - bounded contexts > 8                  → +1
+    - high undocumented code ratio          → +1
+    - external API specs > 3                → +1
+    - has project-profile                   → -1
+    - single team AND monorepo              → -1
+    - solo dev + 1 AI agent                 → -1
+
+  ## Explorer Convention
+
+  /opsx:explore can be invoked ANYTIME, at ANY scale, mid-project.
+  When exploration crystallizes an idea, it concludes with a
+  fit-level recommendation:
+    project-wide   — changes identity, architecture, or governance
+    new-epic       — spans multiple independent testable streams
+    vertical-slice — a single testable MVP (feature/infra/coordination)
+    simple-change  — straightforward spec-driven change
+
+  ## TODO.md Triage
+
+  openspec/project/TODO.md captures emergent ideas.
+
+  Triage frequency by level:
+  - Project TODO.md   → Weekly or on profile refresh
+  - Epic TODO.md      → Per slice completion
+  - Slice TODO.md     → Per change archive
+  - Change TODO.md    → Per task completion
+
+  AI surfaces: "You have N items. Promote to <level> or dismiss?"
+  Items >90 days inactive are flagged ◌ dormant.
+
+  ## Exploration Output Template
+
+  When /opsx:explore crystallizes an idea, use this format:
+  """
+  ## What We Figured Out
+  **The idea**: [crystallized understanding]
+  **Scope analysis**: [how much work, components touched, dependencies]
+  **Recommended fit level**:
+    ☐ project-wide   — changes identity, architecture, or governance
+    ☐ new-epic       — spans multiple independent testable streams
+    ☐ vertical-slice — a testable MVP (feature/infra/coordination)
+    ☐ simple-change  — straightforward spec-driven change
+  **Recommended schema**: [based on current scale + fit level]
+  **Why this level**: [rationale — why not higher or lower]
+  **Next step**: Create the recommended artifact or keep exploring.
+  """
+
+  ## UX Rule
+
+  Every choice menu (scale, fit-level, schema, skills, TODO triage) MUST
+  include "Other — write your own" as the LAST option.
+
+rules:
+  proposal:
+    - Include parent context (epic/slice link or "Standalone change")
+    - Define explicit In Scope / Out of Scope boundaries
+    - Plan [REQ-XXX] traceability IDs for new capabilities
+  design:
+    - Document key decisions as ADRs (Context, Decision, Alternatives, Consequences)
+    - Include Negative Constraints section (what MUST NOT change)
+    - Check alignment with openspec/project/constitution.md
+  specs:
+    - Every requirement MUST carry a unique [REQ-XXX] traceability ID
+    - Every scenario MUST use Given/When/Then format
+  tasks:
+    - Every task group MUST include Blast Radius (allowed file paths)
+    - Every task group MUST include machine-verifiable Definition of Done (DoD)
+    - Every task group MUST reference the [REQ-XXX] IDs it implements

@@ -1,14 +1,20 @@
 ---
-description: Assess project scale (Sketch/Blueprint/Modular/Ecosystem) and recommend schema setup
+name: mvp-evaluate-scale
+description: Assess the project's current scale (Sketch/Blueprint/Modular/Ecosystem) and recommend schema setup. Use when onboarding a new project, re-evaluating mid-project, or debugging scale-related issues.
+license: MIT
+compatibility: Requires openspec CLI.
+metadata:
+  author: openspec
+  version: "1.0"
 ---
 
 Assess the project's current scale and recommend schema configuration.
 
-**When to use:**
-- **New project onboarding** — "What scale should I use?"
-- **Mid-project re-evaluation** — "This feels bigger than before. Re-assess?"
-- **Scale diagnosis** — "Are we using the right scale?"
-- **Scale audit** — "Now that we've shipped, was the choice right?"
+**When to use this skill:**
+- **New project onboarding** — "What scale should I use for my project?"
+- **Mid-project re-evaluation** — "This feels bigger than when we started. Re-assess?"
+- **Scale diagnosis** — "Are we using the right scale? Should we upgrade or downgrade?"
+- **Post-mortem** — "Now that we've shipped, was the scale choice right?"
 
 This is the primary entry point for the mvp-schemas system. It handles
 both greenfield (first use) and brownfield (existing project) scenarios.
@@ -106,10 +112,9 @@ Proceed to the standard 4-step scale assessment below.
 
 ## How It Works
 
-Combines **auto-detected signals** (filesystem scan) with **manual signals**
-(user interview, AskUserQuestion tool) to determine the project's scale.
-
-Scale is about **coordination complexity** — not lines of code or team size.
+The assessment combines **auto-detected signals** (filesystem scan) with **manual signals**
+(user interview) to determine the project's scale. Scale is about **coordination
+complexity**, not lines of code or team size.
 
 ```
               ┌──────────────────────────┐
@@ -205,17 +210,17 @@ cat openspec/config.yaml 2>/dev/null
 
 Derive: `current_schema`, `current_scale_intent`
 
-### 1.8 Check Undocumented Ratio
+### 1.8 Check Undocumented Code Ratio
 
 ```bash
 spec_count=$(find openspec/specs/ -name '*.md' 2>/dev/null | wc -l)
 ```
 
-Derive: `undocumented_ratio` (low/medium/high — heuristic)
+Derive: `undocumented_ratio` (low/medium/high — heuristic based on spec-to-source ratio)
 
-### Auto-Detect Summary
+### Auto-Detect Summary Table
 
-Present results in table format:
+Present to the user:
 
 ```
 ## Auto-Detected Signals
@@ -237,13 +242,14 @@ Present results in table format:
 
 ## Step 2: Interview User for Manual Signals
 
-Use **AskUserQuestion tool** in a single question (multi-part).
+Use the AskUserQuestion tool. Ask ALL questions in a single multi-part question.
 
-1. How many human contributors? (1 / 2-3 / 4-8 / 8+)
-2. How many AI agents or work streams? (1 / 2-3 / 4+)
-3. External systems or vendors? (none / 1-2 / 3+)
-4. Single team or cross-team? (single / multiple)
-5. Current scale setup feel? (works fine / too heavy / too light / unsure)
+1. **How many human contributors?** (1 / 2-3 / 4-8 / 8+)
+2. **How many AI agents or work streams?** (1 / 2-3 / 4+)
+3. **External systems or vendors?** (none / 1-2 / 3+)
+   If yes, are their docs (Swagger, PDFs, APIs) available?
+4. **Single team or cross-team?** (single / multiple)
+5. **Current scale setup feel?** (works fine / too heavy / too light / unsure)
 
 ---
 
@@ -252,8 +258,7 @@ Use **AskUserQuestion tool** in a single question (multi-part).
 ### Primary Signal: Work Stream Count
 
 ```
-work_streams = max(active_changes_count,
-                   active_epics_count + active_changes_count,
+work_streams = max(active_changes_count, active_epics_count + active_changes_count,
                    human_contributors + ai_agents_in_use)
 ```
 
@@ -281,16 +286,16 @@ work_streams = max(active_changes_count,
 ### Final Recommendation
 
 ```
-Raw work_stream signal:        N → <candidate>
+Raw work_stream signal:        N → <candidate scale>
 Modifier adjustments:          +N / -N
-Modified scale:                <final>
+Modified scale:                <final scale>
 
-Decision:
+Decision table lookup:
   Sketch     → schemas: spec-driven (stock)
                 structure: openspec/changes/ only
                 
   Blueprint  → schemas: project-profile + spec-driven-enhanced
-                structure: + openspec/project/
+                structure: + openspec/project/ + spec-driven-enhanced fork
                 
   Modular    → schemas: + epic + vertical-slice
                 structure: + openspec/epics/ + domain-map
@@ -303,7 +308,7 @@ Decision:
 
 ## Step 4: Output Structured Recommendation
 
-Present in this canonical format:
+Present in canonical format:
 
 ```
 ## Scale Assessment
@@ -337,10 +342,10 @@ Present in this canonical format:
 
 ### Next Actions
 
-<If configured correctly:>
+<If current scale matches config and all schemas installed:>
   ✓ Your project is properly configured for <scale> scale.
 
-<If scale mismatch or missing schemas:>
+<If mismatch or missing:>
   **Detected <detected> but configured for <current>.**
   → `/opsx:explore` to discuss the recommendation
   → `openspec new change upgrade-<from>-to-<to> --schema project-upgrade`
@@ -348,24 +353,25 @@ Present in this canonical format:
 
 <If signals conflict:>
   **Signals mixed.** Confidence Low.
-  → Start lighter, upgrade when needed
+  → Start with lighter setup, upgrade when needed
   → Run `/opsx:explore` to discuss
   → Try Blueprint as safe default
 ```
 
 ### UX Rule
 
-Last option after recommendation must be: "Other — discuss further or override"
+After presenting recommendation, last option must be:
+"Other — discuss further or override the recommendation"
 
 ---
 
 ## Guardrails
 
-- **Read-only** — Never create, edit, or delete files
-- **Always ask user interview** — Auto-detection alone is insufficient
-- **Recommendation is advisory** — User may override or defer
-- **Don't default to Ecosystem** — Only if clear polyrepo + multi-vendor + multi-team
-- **Don't confuse code size with scale** — Large CRUD = still Sketch/Blueprint
-- **Explain the "why"** — Always show signal → scale mapping
-- **Suggest `/opsx:explore` as follow-up** — If user wants to discuss before acting
-- **Handle "this feels wrong"** — Discuss and adjust signals
+- **Read-only** — Never create, edit, or delete files.
+- **Always ask user interview** — Auto-detection alone is insufficient.
+- **Recommendation is advisory** — User may override or defer.
+- **Don't default to Ecosystem** — Only if clear polyrepo + multi-vendor + multi-team.
+- **Don't confuse code size with scale** — Large CRUD app with one stream is still Sketch/Blueprint.
+- **Explain the "why"** — Always show signal → scale mapping.
+- **Suggest `/opsx:explore` as follow-up** — If user wants to discuss before acting.
+- **Handle "this feels wrong"** — If user disagrees, discuss signals and adjust.

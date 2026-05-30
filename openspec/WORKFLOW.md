@@ -6,26 +6,37 @@
 
 ## Getting Started — Fresh Project Bootstrap
 
-### Step 0: Evaluate Project Scale
-
-Before installing anything, assess where your project fits:
+### Step 0: Evaluate Project Scale (and Bootstrap)
 
 ```
 /mvp:evaluate-scale
 ```
 
-This reads your project's filesystem signals (change count, module count,
-repo count, existing spec coverage) and interviews you for non-detectable
-signals (contributor count, AI agents, external vendors). It outputs a
-structured recommendation:
+This is the primary entry point for the mvp-schemas system. It handles
+both greenfield and brownfield projects:
 
+**Greenfield (no code, no profile)**:
+The AI explores your idea with you. When things crystallize, it offers
+to create a project-profile from the conversation — so this single
+command replaces Steps 0–3 for new projects.
+
+**Brownfield (code exists, no profile)**:
+The AI scans your existing specs and code to bootstrap a project-profile,
+capturing implicit architecture and conventions.
+
+**Already bootstrapped (profile exists)**:
+Runs the standard scale assessment: scans filesystem signals,
+interviews you for non-detectable signals, outputs a structured
+recommendation with detected scale, missing schemas, and next actions.
+
+Output format:
+
+```
 - **Detected scale**: Sketch / Blueprint / Modular / Ecosystem
 - **Confidence**: High / Medium / Low
 - **Missing schemas**: What needs to be installed
 - **Next action**: What to do next
-
-Unlike `/opsx:explore` (which crystallizes vague ideas), `/mvp:evaluate-scale`
-diagnoses the project itself and recommends the right schema setup.
+```
 
 ### Step 1: Install the MVP-Schemas System
 
@@ -101,7 +112,12 @@ The explorer concludes with a concrete recommendation:
 or run `/mvp:evaluate-scale` first if you need scale confirmation.
 ```
 
-### Step 3: Bootstrap Project Identity
+### Step 3: Bootstrap Project Identity (If Not Already Done)
+
+If `/mvp:evaluate-scale` already created your project-profile during
+the greenfield bootstrap, skip this step.
+
+Otherwise:
 
 ```
 openspec new change init-profile --schema project-profile
@@ -131,22 +147,24 @@ about your project's scale system. Use it whenever:
 - An existing change feels bigger than expected — re-assess fit-level
 - You discover a new integration that needs vendor docs
 
-## How the Explorer Knows About Scales
+## How the Explorer Knows About Scales (and Bootstrap)
 
 The stock OpenSpec explorer (`/opsx:explore`) is a built-in skill.
-It does NOT have hardcoded knowledge of our custom scale system.
+It does NOT have hardcoded knowledge of our custom scale system
+or bootstrap workflow.
 
 **How it works**: When you invoke `/opsx:explore`, OpenSpec injects
-`openspec/config.yaml` context into the AI prompt. Since our config.yaml
-contains the full scale selection logic, fit-level decision tree,
-and exploration output template, the explorer AI reads this and
-naturally follows the custom flow.
+`openspec/config.yaml` context into the AI prompt. This context tells
+the AI:
 
-**Key rule**: The config.yaml context IS the orchestrator. You don't need
-a meta-schema that rules over all 7 schemas. The context in config.yaml
-guides the explorer, and each schema's instructions guide its own workflow.
-The schemas compose through cross-referencing (epic links to slices,
-slices link to changes), not through a parent schema.
+1. **Bootstrap check** — At session start, check for `AGENTS.md`/`CLAUDE.md`
+   and `openspec/project/profile.md`. If missing, offer to set them up.
+2. **Scale selection** — The full project scale logic (Sketch → Blueprint →
+   Modular → Ecosystem) and fit-level decision tree.
+3. **Output template** — How to format the exploration conclusion.
+
+This is why stock `/opsx:explore` works with mvp-schemas without
+modifying the command itself — the config.yaml context is the bridge.
 
 ## Evaluate-Scale Command vs Explorer
 
@@ -155,19 +173,28 @@ different entry points:
 
 | | `/mvp:evaluate-scale` | `/opsx:explore` |
 |---|---|---|
-| **Purpose** | Diagnose the project's scale | Crystallize a vague idea |
-| **When to use** | New project onboarding, mid-project re-evaluation, scale audit | "I have an idea but need to think it through" |
-| **Input** | Project filesystem state | A fuzzy idea, problem, or question |
-| **Output** | Scale recommendation + missing schemas | Crystalized idea + fit-level recommendation |
-| **Reads/writes?** | Read-only (never modifies files) | Read-only (never implements code) |
-| **Who runs first** | First (for scale assessment) | Second (for specific initiative planning) |
+| **Purpose** | Onboard + diagnose project scale | Crystallize a vague idea |
+| **When to use** | New project, mid-project re-evaluation, scale audit | "I have an idea but need to think it through" |
+| **Input** | Project filesystem state (or nothing for greenfield) | A fuzzy idea, problem, or question |
+| **Output** | Greenfield: explore → project-profile. Brownfield: scale diagnosis + schema recommendation | Crystalized idea + fit-level recommendation |
+| **Writes?** | Greenfield: may create project-profile. Otherwise read-only | Read-only (never modifies files) |
+| **Who runs first** | First (for onboarding + bootstrap) | Second (for specific initiative planning) |
 
-**Typical flow:**
+**Typical flows:**
 
 ```
+# Greenfield — first use
+/mvp:evaluate-scale
+→ "I notice this is a fresh project. Let's figure out what you're building..."
+→ [Explore → crystallize → propose project-profile]
+→ "Based on what we discussed, this looks like a Blueprint project.
+   Want me to create profile.md, constitution.md, standards.md?"
+
+# Already bootstrapped — re-evaluate
 /mvp:evaluate-scale
 → "You're at Modular scale. Schemas installed correctly."
 
+# Specific initiative — after bootstrap
 /opsx:explore
 → "I want to add real-time chat."
 → "Fit-level: new-epic. Create an epic and slices."
