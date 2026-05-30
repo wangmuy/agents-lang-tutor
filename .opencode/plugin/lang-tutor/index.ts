@@ -58,7 +58,6 @@ interface PluginConfig {
   displayMethod?: "prompt" | "toast"
   mode?: "sync" | "async"
 }
-}
 
 interface OpencodeConfig {
   model?: string
@@ -256,7 +255,9 @@ async function fetchTip(
   modelID: string,
   systemPrompt: string,
   userText: string,
+  maxTokens: number,
   signal?: AbortSignal,
+  disableReasoning?: boolean,
 ): Promise<string | null> {
   const url = baseURL.replace(/\/+$/, "") + "/chat/completions"
 
@@ -267,17 +268,23 @@ async function fetchTip(
     headers["Authorization"] = `Bearer ${apiKey}`
   }
 
-  const body = JSON.stringify({
+  const bodyObj: Record<string, unknown> = {
     model: modelID,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userText },
     ],
-    max_tokens: 50,
+    max_tokens: maxTokens,
     temperature: 0.3,
-  })
+  }
 
-  log(LogLevel.DEBUG, "fetchTip: sending request", { url, modelID, userTextLength: userText.length })
+  if (disableReasoning) {
+    bodyObj.enable_thinking = false
+  }
+
+  const body = JSON.stringify(bodyObj)
+
+  log(LogLevel.DEBUG, "fetchTip: sending request", { url, modelID, userTextLength: userText.length, disableReasoning: !!disableReasoning })
 
   const response = await fetch(url, {
     method: "POST",
@@ -287,7 +294,11 @@ async function fetchTip(
   })
 
   if (!response.ok) {
-    log(LogLevel.WARN, "fetchTip: non-OK response", { status: response.status, statusText: response.statusText })
+    log(LogLevel.WARN, "fetchTip: non-OK response", { status: response.status, statusText: response.statusText, disableReasoning: !!disableReasoning })
+    if (disableReasoning) {
+      log(LogLevel.INFO, "fetchTip: reasoning-disabled request failed, falling back to reasoning-enabled")
+      return fetchTip(baseURL, apiKey, modelID, systemPrompt, userText, maxTokens, signal, false)
+    }
     return null
   }
 
@@ -296,16 +307,29 @@ async function fetchTip(
   const rawData = await response.text()
   log(LogLevel.DEBUG, "fetchTip: raw response body", { rawData: rawData.slice(0, 500) })
   const data = JSON.parse(rawData) as {
-    choices?: Array<{ message?: { content?: string; reasoning_content?: string } }>
+    choices?: Array<{ message?: { content?: string; reasoning_content?: string }; finish_reason?: string }>
   }
 
-  const content = data.choices?.[0]?.message?.content
-  if (!content) {
+  const choice = data.choices?.[0]
+  const content = choice?.message?.content
+  const finishReason = choice?.finish_reason
+
+  if (!content || !content.trim()) {
     log(LogLevel.WARN, "fetchTip: empty content", {
-      hasReasoning: !!data.choices?.[0]?.message?.reasoning_content,
+      hasReasoning: !!choice?.message?.reasoning_content,
+      finishReason,
       choicesCount: data.choices?.length ?? 0,
-      status: response.status,
+      maxTokens,
+      disableReasoning: !!disableReasoning,
     })
+    if (disableReasoning) {
+      log(LogLevel.INFO, "fetchTip: reasoning-disabled produced empty content, falling back to reasoning-enabled")
+      return fetchTip(baseURL, apiKey, modelID, systemPrompt, userText, maxTokens, signal, false)
+    }
+    if (finishReason === "length" && choice?.message?.reasoning_content && maxTokens < 512) {
+      log(LogLevel.INFO, "fetchTip: retrying with higher max_tokens", { oldMaxTokens: maxTokens, newMaxTokens: 512 })
+      return fetchTip(baseURL, apiKey, modelID, systemPrompt, userText, 512, signal, false)
+    }
     return null
   }
   const trimmed = content.trim() || null
@@ -361,10 +385,6 @@ async function displayTip(
     await displayTipPrompt(client, sessionID, tip)
   }
 }
-
-// ---------------------------------------------------------------------------
-// TipsQueue: per-session abort controller + cooldown management
-// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // Main plugin
@@ -444,6 +464,9 @@ export const LangTutorPlugin: Plugin = async (ctx) => {
             modelID,
             systemPrompt,
             stripped,
+            200,
+            undefined,
+            true,
           )
 
           if (!tip || isOKResponse(tip)) {
