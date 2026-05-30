@@ -67,6 +67,13 @@ context: |
 
   This project uses the mvp-schemas custom SDD system. Key commands:
   - `/mvp:evaluate-scale` — assess project scale + bootstrap
+  - `/mvp:init-profile` — create project-profile (constitution, architecture)
+  - `/mvp:create-epic` — create epic with vertical slice decomposition
+  - `/mvp:create-slice` — create vertical-slice + auto-scaffold child changes
+  - `/mvp:apply-slice` — implement all child changes from a slice manifest
+  - `/mvp:ingest` — ingest external docs into BDD shadow specs
+  - `/mvp:reverse` — reverse-engineer specs from undocumented code
+  - `/mvp:upgrade` — upgrade project scale with verification gate
   - `/opsx:explore` — explore ideas and crystallize into proposals
   - `/opsx:propose` — create change proposals with full artifacts
   - `/opsx:apply` — implement tasks from a change

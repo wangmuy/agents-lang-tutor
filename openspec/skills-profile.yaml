@@ -48,6 +48,13 @@ suggestions:
       when: before_creation
       description: "Explore alternative approaches before committing"
 
+  # mvp-init-profile — orchestrated profile creation
+  mvp-init-profile:
+    - name: mvp-init-profile
+      source: local
+      when: during
+      description: "Bootstrap project-profile from conversation or existing code"
+
     # Example: local skill from .opencode/skills/my-reviewer
     # - name: my-reviewer
     #   source: local
@@ -73,6 +80,13 @@ suggestions:
       when: before_creation
       description: "Explore initiative scope and slice boundaries"
 
+  # mvp-create-epic — orchestrated epic creation
+  mvp-create-epic:
+    - name: mvp-create-epic
+      source: local
+      when: during
+      description: "Create an epic with vertical slice decomposition"
+
   # vertical-slice schema
   vertical-slice.slice-proposal:
     - name: grill-me
@@ -85,6 +99,20 @@ suggestions:
       source: community
       when: after_creation
       description: "Review contract stubs for completeness"
+
+  # mvp-create-slice — orchestrated slice creation
+  mvp-create-slice:
+    - name: mvp-create-slice
+      source: local
+      when: during
+      description: "Create a vertical-slice change with auto-scaffolded child changes"
+
+  # mvp-apply-slice — orchestrated slice implementation
+  mvp-apply-slice:
+    - name: mvp-apply-slice
+      source: local
+      when: during
+      description: "Apply all child changes from a slice change-manifest in order"
 
   # spec-driven-enhanced schema
   spec-driven-enhanced.proposal:
@@ -118,6 +146,20 @@ suggestions:
       when: after_creation
       description: "Review integration risks from a system design perspective"
 
+  # mvp-ingest — orchestrated document ingestion
+  mvp-ingest:
+    - name: mvp-ingest
+      source: local
+      when: during
+      description: "Ingest external docs into BDD shadow specs with gap analysis"
+
+  # mvp-reverse — orchestrated code reverse engineering
+  mvp-reverse:
+    - name: mvp-reverse
+      source: local
+      when: during
+      description: "Reverse-engineer behavioral specs from undocumented source code"
+
   # project-upgrade schema
   project-upgrade.upgrade-plan:
     - name: system-design
@@ -130,6 +172,13 @@ suggestions:
       source: community
       when: after_creation
       description: "Challenge whether the upgrade truly passed all checks"
+
+  # mvp-upgrade — orchestrated scale migration
+  mvp-upgrade:
+    - name: mvp-upgrade
+      source: local
+      when: during
+      description: "Upgrade project scale with verification gate"
   code-to-spec.reverse-engineering:
     - name: code-review
       source: community

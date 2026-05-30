@@ -112,18 +112,14 @@ The explorer concludes with a concrete recommendation:
 or run `/mvp:evaluate-scale` first if you need scale confirmation.
 ```
 
-### Step 3: Bootstrap Project Identity (If Not Already Done)
-
-If `/mvp:evaluate-scale` already created your project-profile during
-the greenfield bootstrap, skip this step.
-
-Otherwise:
+### Step 3: Bootstrap Project Identity
 
 ```
-openspec new change init-profile --schema project-profile
+/mvp:init-profile
 ```
 
-This generates into `openspec/project/` (permanent, never archived):
+This explores your project (or scans existing code) and generates into
+`openspec/project/` (permanent, never archived):
 - `profile.md` — auto-scanning status dashboard
 - `constitution.md` — hard governance constraints
 - `standards.md` — advisory coding conventions
@@ -198,6 +194,63 @@ different entry points:
 /opsx:explore
 → "I want to add real-time chat."
 → "Fit-level: new-epic. Create an epic and slices."
+
+## Vertical-Slice Commands
+
+For Modular-scale projects and above, vertical slices decompose into
+multiple spec-driven changes with shared contracts. Two commands
+orchestrate this:
+
+### `/mvp:create-slice` — Decompose a slice into child changes
+
+```
+/mvp:create-slice <name|description>
+```
+
+1. Asks about parent epic (if any) and slice scope
+2. Creates a `vertical-slice` change with `slice-proposal.md`
+3. Generates `change-manifest.md` with child change assignments, shared
+   contract stubs, and integration test plan
+4. Auto-scaffolds each child change as `spec-driven-enhanced`:
+   `openspec new change <child> --schema spec-driven-enhanced`
+5. Shows summary of child changes, contracts, and next step
+
+### `/mvp:apply-slice` — Implement all child changes in order
+
+```
+/mvp:apply-slice <slice-name>
+```
+
+1. Reads the slice's `change-manifest.md`
+2. Shows status dashboard of all child changes with dependencies
+3. In dependency order, for each unarchived child change:
+   - Creates if not exists, applies tasks, verifies contracts
+   - Archives the child change, updates manifest status
+4. Completes when ALL child changes are archived
+
+These replace the manual "create each change, apply each change" loop
+described in the standard vertical-slice workflow.
+
+## MVP Command Reference
+
+All custom commands and their schema mappings:
+
+| Command | Schema | Purpose |
+|---------|--------|---------|
+| `/mvp:evaluate-scale` | (diagnostic) | Assess project scale + bootstrap (greenfield: explore → profile + AGENTS.md) |
+| `/mvp:init-profile` | project-profile | Bootstrap profile, constitution, standards, architecture |
+| `/mvp:create-epic` | epic | Create epic with vertical slice decomposition (YYYY-MM-slug) |
+| `/mvp:create-slice` | vertical-slice | Decompose slice → scaffold child changes + contract stubs |
+| `/mvp:apply-slice` | vertical-slice | Implement all child changes from a slice manifest in dependency order |
+| `/mvp:ingest` | external-ingest | Ingest external docs → BDD shadow specs + gap analysis |
+| `/mvp:reverse` | code-to-spec | Reverse-engineer undocumented code → BDD shadow specs |
+| `/mvp:upgrade` | project-upgrade | Migrate project scale (Sketch→Blueprint→Modular→Ecosystem) |
+
+Stock commands (enhanced via config.yaml context injection):
+| `/opsx:explore` | — | Explore ideas, crystallize into proposals |
+| `/opsx:propose` | spec-driven-enhanced | Create change with full artifacts |
+| `/opsx:apply` | — | Implement tasks from a change |
+| `/opsx:archive` | — | Archive completed changes |
 
 ## Architecture Philosophy
 
@@ -402,7 +455,7 @@ Example: building a "WeChat clone" for learning distributed systems.
 ### Step 1: Bootstrap Project Identity
 
 ```
-openspec new change init-profile --schema project-profile
+/mvp:init-profile
 → Creates openspec/project/profile.md (auto-scans existing specs)
 → Creates openspec/project/constitution.md (hard constraints)
 → Creates openspec/project/standards.md (advisory: Go style, gRPC patterns)
@@ -413,39 +466,53 @@ openspec new change init-profile --schema project-profile
 ### Step 2: Create Epics
 
 ```
-Manually create: openspec/epics/2025-05-messaging/epic.md
+/mvp:create-epic messaging
 → Vision: "Real-time messaging between users"
 → Slices:
   Slice 1: Infrastructure — "Project scaffold compiles and CI passes"
   Slice 2: Feature — "User can send and receive text messages"
   Slice 3: Feature — "User can see online/offline status"
-→ openspec/epics/2025-05-messaging/TODO.md (future ideas)
+→ Creates openspec/epics/2025-05-messaging/epic.md
+→ Creates openspec/epics/2025-05-messaging/TODO.md (future ideas)
 ```
 
-### Step 3: Plan Each Slice
+### Step 3: Plan Each Slice with `/mvp:create-slice`
 
 ```
-openspec new change slice-messaging-scaffold --schema vertical-slice
-→ slice-proposal.md: compile + CI as doD
+/mvp:create-slice slice-messaging-scaffold
+→ Parent epic: 2025-05-messaging
+→ Slice type: Infrastructure
+→ slice-proposal.md: compile + CI as DoD
 → change-manifest.md:
     change: be-scaffold → backend-service (Go, gRPC server)
     change: fe-scaffold → web-dashboard (React, WebSocket client)
+  ✓ Auto-scaffolded 2 child changes (spec-driven-enhanced)
 
-openspec new change slice-send-receive --schema vertical-slice
+/mvp:create-slice slice-send-receive
+→ Parent epic: 2025-05-messaging
+→ Slice type: Feature
+→ slice-proposal.md: send/receive text messages
 → change-manifest.md:
     change: be-messaging-api → backend-service
     change: fe-chat-ui → web-dashboard
     contract: gRPC SendMessage(Message) → MessageResponse
+  ✓ Auto-scaffolded 2 child changes (spec-driven-enhanced)
 ```
 
-### Step 4: Implement Each Change
+### Step 4: Apply Each Slice with `/mvp:apply-slice`
 
 ```
-openspec new change be-messaging-api --schema spec-driven-enhanced
-→ proposal (parent: slice-send-receive) → specs ([REQ-MSG-001])
-→ design (ADR: gRPC over WebSocket) → tasks (blast radius: backend/msg/*)
-→ verification (traceability matrix, git diff compliance)
-→ apply → archive
+/mvp:apply-slice slice-send-receive
+→ Status: 0/2 child changes done
+→ Starting be-messaging-api
+  → proposal (parent: slice-send-receive) → specs ([REQ-MSG-001])
+  → design (ADR: gRPC over WebSocket) → tasks (blast radius: backend/msg/*)
+  → verification (traceability matrix, git diff compliance)
+  → ✓ Archived
+→ Starting fe-chat-ui
+  → Verified against contract: gRPC SendMessage(Message) → MessageResponse
+  → ✓ Archived
+→ ✓ Slice complete: 2/2 child changes archived
 ```
 
 Mid-implementation triage:
