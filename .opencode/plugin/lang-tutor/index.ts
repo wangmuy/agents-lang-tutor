@@ -55,6 +55,9 @@ interface PluginConfig {
   forcedLanguage?: string
   cooldownMs?: number
   tipModel?: string
+  displayMethod?: "prompt" | "toast"
+  mode?: "sync" | "async"
+}
 }
 
 interface OpencodeConfig {
@@ -291,13 +294,21 @@ async function fetchTip(
   log(LogLevel.DEBUG, "fetchTip: response OK", { status: response.status })
 
   const rawData = await response.text()
-  log(LogLevel.DEBUG, "fetchTip: raw response body", { rawData: rawData.slice(0, 300) })
+  log(LogLevel.DEBUG, "fetchTip: raw response body", { rawData: rawData.slice(0, 500) })
   const data = JSON.parse(rawData) as {
-    choices?: Array<{ message?: { content?: string } }>
+    choices?: Array<{ message?: { content?: string; reasoning_content?: string } }>
   }
 
   const content = data.choices?.[0]?.message?.content
-  const trimmed = content?.trim() || null
+  if (!content) {
+    log(LogLevel.WARN, "fetchTip: empty content", {
+      hasReasoning: !!data.choices?.[0]?.message?.reasoning_content,
+      choicesCount: data.choices?.length ?? 0,
+      status: response.status,
+    })
+    return null
+  }
+  const trimmed = content.trim() || null
   log(LogLevel.DEBUG, "fetchTip: response content", { hasContent: !!trimmed, preview: trimmed?.slice(0, 60) })
   return trimmed
 }
@@ -306,7 +317,7 @@ async function fetchTip(
 // Display
 // ---------------------------------------------------------------------------
 
-async function displayTip(
+async function displayTipPrompt(
   client: { session: { prompt: (args: unknown) => unknown } },
   sessionID: string,
   tip: string,
@@ -323,181 +334,136 @@ async function displayTip(
   })
 }
 
+async function displayTipToast(
+  client: { tui: { showToast: (args: unknown) => unknown } },
+  tip: string,
+): Promise<void> {
+  await (client.tui.showToast as (args: {
+    body: { message: string; variant: string; duration?: number }
+  }) => Promise<unknown>)({
+    body: {
+      message: `[LANG-TIP] ${tip}`,
+      variant: "info",
+      duration: 8000,
+    },
+  })
+}
+
+async function displayTip(
+  client: { session: { prompt: (args: unknown) => unknown }; tui: { showToast: (args: unknown) => unknown } },
+  sessionID: string,
+  tip: string,
+  method: "prompt" | "toast",
+): Promise<void> {
+  if (method === "toast") {
+    await displayTipToast(client, tip)
+  } else {
+    await displayTipPrompt(client, sessionID, tip)
+  }
+}
+
 // ---------------------------------------------------------------------------
 // TipsQueue: per-session abort controller + cooldown management
 // ---------------------------------------------------------------------------
-
-class TipsQueue {
-  private controllers = new Map<string, AbortController>()
-  private lastTipTime = new Map<string, number>()
-
-  enqueue(
-    sessionID: string,
-    fn: (signal: AbortSignal) => Promise<string | null>,
-    cooldownMs?: number,
-  ): void {
-    // Cooldown check
-    if (cooldownMs && cooldownMs > 0) {
-      const last = this.lastTipTime.get(sessionID) ?? 0
-      if (Date.now() - last < cooldownMs) return
-    }
-
-    // Abort previous pending request for this session
-    const prev = this.controllers.get(sessionID)
-    if (prev) {
-      prev.abort()
-    }
-
-    const controller = new AbortController()
-    this.controllers.set(sessionID, controller)
-
-    // Run async, don't block
-    fn(controller.signal).then((tip) => {
-      this.controllers.delete(sessionID)
-      if (tip !== null) {
-        this.lastTipTime.set(sessionID, Date.now())
-      }
-    }).catch(() => {
-      this.controllers.delete(sessionID)
-    })
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Main plugin
 // ---------------------------------------------------------------------------
 
-const tipsQueue = new TipsQueue()
 const processedMessages = new Set<string>()
+const lastTipTime = new Map<string, number>()
 
 export const LangTutorPlugin: Plugin = async (ctx) => {
   return {
-    event: async ({ event }) => {
-      if (event.type !== "message.updated") return
+    "tool.execute.before": async (input: { sessionID?: string }, _output: unknown) => {
+      const sessionID = input.sessionID
+      if (!sessionID) return
 
-      const props = event.properties as {
-        sessionID?: string
-        info?: {
-          role?: string
-          id?: string
-          time?: { created?: number }
-          summary?: unknown
-        }
-      }
-      const info = props?.info
-      if (!info || info.role !== "user") return
-
-      const messageID = info.id
-      const sessionID = props.sessionID
-      if (!messageID || !sessionID) return
-
-      // Only process messages that have summary (second fire, post-assistant response)
-      if (!info.summary) return
-
-      // Avoid re-processing the same message
-      if (processedMessages.has(messageID)) return
-      processedMessages.add(messageID)
-
-      log(LogLevel.INFO, "event: user message updated, fetching content", { messageID, sessionID })
-
-      // Re-read config on every message for dynamic enable/disable
+      // Re-read config
       const rawConfig = readOpencodeConfig(ctx.worktree)
-      if (!rawConfig) {
-        log(LogLevel.WARN, "event: no config found, skipping")
-        return
-      }
+      if (!rawConfig) return
 
       const pluginOpts = resolvePluginOptions(rawConfig)
-      if (pluginOpts.enabled === false) {
-        log(LogLevel.DEBUG, "event: plugin disabled via config")
-        return
+      if (pluginOpts.enabled === false) return
+
+      // Cooldown check
+      if (pluginOpts.cooldownMs && pluginOpts.cooldownMs > 0) {
+        const last = lastTipTime.get(sessionID) ?? 0
+        if (Date.now() - last < pluginOpts.cooldownMs) return
       }
 
       const modelID = pluginOpts.tipModel ?? rawConfig.model
-      if (!modelID) {
-        log(LogLevel.WARN, "event: no model ID resolved, skipping")
-        return
-      }
+      if (!modelID) return
 
       const providerConfig = resolveProviderConfig(rawConfig, modelID)
-      if (!providerConfig) {
-        log(LogLevel.WARN, "event: provider config resolution failed, skipping")
+      if (!providerConfig) return
+
+      // Fetch session messages synchronously to find latest user message
+      let userContent = ""
+      let userMessageID = ""
+      try {
+        const msgsResult = await (ctx.client.session.messages as (args: {
+          path: { id: string }
+        }) => Promise<{ data?: Array<{ info?: { id?: string; role?: string }; parts?: Array<{ type?: string; text?: string }> }> }>)({
+          path: { id: sessionID },
+        })
+
+        const msgs = msgsResult.data ?? []
+        for (let i = msgs.length - 1; i >= 0; i--) {
+          const msg = msgs[i]
+          if (msg.info?.role === "user") {
+            userMessageID = msg.info.id ?? ""
+            const parts = msg.parts ?? []
+            for (const part of parts) {
+              if (part.type === "text" && part.text) {
+                userContent += part.text
+              }
+            }
+            break
+          }
+        }
+      } catch {
         return
       }
 
-      // Queue the async tip request — content fetched inside
-      tipsQueue.enqueue(
-        sessionID,
-        async (signal) => {
-          try {
-            // Fetch user message content via SDK
-            log(LogLevel.DEBUG, "event: fetching message via SDK", { messageID, sessionID })
-            let userContent = ""
-            try {
-              // Fetch all messages in session, find user message by ID
-              const msgsResult = await (ctx.client.session.messages as (args: {
-                path: { id: string }
-              }) => Promise<unknown>)({
-                path: { id: sessionID },
-              })
-              log(LogLevel.DEBUG, "event: SDK sessions.messages raw", { keys: Object.keys(msgsResult as object), json: JSON.stringify(msgsResult).slice(0, 800) })
+      // Skip if no user content or already processed
+      if (!userContent || !userMessageID) return
+      if (processedMessages.has(userMessageID)) return
+      processedMessages.add(userMessageID)
 
-              const msgs = (msgsResult as { data?: Array<{ info?: { id?: string; role?: string }; parts?: Array<{ type?: string; text?: string }> }> }).data ?? []
-              for (const msg of msgs) {
-                if (msg.info?.id === messageID) {
-                  const parts = msg.parts ?? []
-                  for (const part of parts) {
-                    if (part.type === "text" && part.text) {
-                      userContent += part.text
-                    }
-                  }
-                  break
-                }
-              }
-              log(LogLevel.DEBUG, "event: SDK fetch result", { contentLength: userContent.length, messagesCount: msgs.length, foundMessage: !!msgs.find(m => m.info?.id === messageID) })
-            } catch (e) {
-              log(LogLevel.ERROR, "event: SDK message fetch failed", e)
-              return null
-            }
+      log(LogLevel.INFO, "tool.execute.before: processing tip", { modelID, contentLength: userContent.length, mode: pluginOpts.mode ?? "sync" })
 
-            if (!userContent) {
-              log(LogLevel.DEBUG, "event: no user content, skipping tip")
-              return null
-            }
+      const stripped = stripCodeBlocks(userContent)
+      const systemPrompt = buildSystemPrompt(pluginOpts.forcedLanguage)
 
-            const stripped = stripCodeBlocks(userContent)
-            const systemPrompt = buildSystemPrompt(pluginOpts.forcedLanguage)
+      const runTip = async () => {
+        try {
+          const tip = await fetchTip(
+            providerConfig.baseURL,
+            providerConfig.apiKey,
+            modelID,
+            systemPrompt,
+            stripped,
+          )
 
-            log(LogLevel.INFO, "event: fetching tip", { modelID, contentLength: userContent.length })
-
-            const tip = await fetchTip(
-              providerConfig.baseURL,
-              providerConfig.apiKey,
-              modelID,
-              systemPrompt,
-              stripped,
-              signal,
-            )
-
-            if (!tip || isOKResponse(tip)) {
-              log(LogLevel.DEBUG, "event: no actionable tip (null or [OK])", { tip })
-              return null
-            }
-
-            log(LogLevel.INFO, "event: displaying tip", { tip })
-            await displayTip(ctx.client, sessionID, tip)
-            return tip
-          } catch (err) {
-            if (err instanceof Error && err.name === "AbortError") {
-              log(LogLevel.DEBUG, "tip: aborted (rapid-fire)")
-              return null
-            }
-            log(LogLevel.ERROR, "Tip request failed", err)
-            return null
+          if (!tip || isOKResponse(tip)) {
+            log(LogLevel.DEBUG, "tool.execute.before: no actionable tip (null or [OK])", { tip })
+            return
           }
-        },
-        pluginOpts.cooldownMs,
-      )
+
+          log(LogLevel.INFO, "tool.execute.before: displaying tip", { tip, method: pluginOpts.displayMethod ?? "prompt" })
+          await displayTip(ctx.client, sessionID, tip, pluginOpts.displayMethod ?? "prompt")
+          lastTipTime.set(sessionID, Date.now())
+        } catch (err) {
+          log(LogLevel.ERROR, "Tip request failed", err)
+        }
+      }
+
+      if (pluginOpts.mode === "async") {
+        Promise.resolve().then(runTip)
+      } else {
+        await runTip()
+      }
     },
   }
 }
