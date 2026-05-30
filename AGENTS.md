@@ -2,7 +2,7 @@
 
 ## Purpose
 
-A language writing-tutor plugin that provides brief grammar/vocabulary tips after each user message. Designed to run across multiple coding agents — currently implemented for OpenCode, with Codex, Claude Code, and pi planned.
+See [README.md](./README.md) for project overview, usage, and configuration.
 
 ## Agent integration directories
 
@@ -12,8 +12,6 @@ A language writing-tutor plugin that provides brief grammar/vocabulary tips afte
 | Codex | `.codex/` | Planned |
 | Claude Code | `.claude/` | Planned |
 | pi | TBD | Planned |
-
-Each agent gets its own plugin directory with a self-contained implementation adapted to that agent's plugin/hook system.
 
 ## Tooling
 
@@ -30,7 +28,8 @@ See [IMPL-OPENCODE.md](./IMPL-OPENCODE.md) for the full OpenCode implementation 
 
 ## Adding a new agent
 
-For each new agent, create a directory following that agent's plugin conventions. Key decisions per agent:
+See [README.md — Adding a new agent](./README.md#adding-a-new-agent) for the high-level guide. Implementation details per agent:
+
 - Which hook/event fires for user messages?
 - How to retrieve user message text (event payload vs API fetch)?
 - How to display inline output to the user?
