@@ -88,6 +88,12 @@ suggestions:
       when: during
       description: "Execute structural reorganization: merge, create, abandon, unarchive, reactivate"
 
+  mvp-reflect:
+    - name: mvp-reflect
+      source: local
+      when: after_creation
+      description: "Reactive-only. Post-completion reflection after change/slice/epic finishes."
+
   # ─── Community Skill Examples (commented — uncomment and fill real URLs) ─
 
   # exploration:
