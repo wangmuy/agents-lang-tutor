@@ -1,6 +1,6 @@
 # Architecture Canvas
 
-> Last verified: 2026-05-30. Living document — update when boundaries change.
+> Last verified: 2026-05-31. Living document — update when boundaries change.
 
 ## Bounded Contexts
 
@@ -11,12 +11,13 @@ independently per agent runtime. Each agent port is a self-contained instance.
 
 - **Responsibility**: Detect user message language, evaluate writing quality
   via LLM, and display improvement tips without polluting conversation context.
-- **Spec**: No BDD specs exist yet. Reference implementation: `.opencode/plugin/lang-tutor/index.ts`
+- **Spec**: `openspec/changes/add-lang-tutor-plugin/specs/lang-tutor-plugin/spec.md` and `openspec/changes/add-lang-tutor-plugin/specs/iso639-normalize/spec.md`
 - **Key Entities**:
-  - `LangTutorPlugin` — Plugin entry point, registers hooks, orchestrates pipeline
-  - `PluginConfig` — Runtime configuration (enabled, nativeLanguages, displayMethod, mode)
-  - `ProcessedMessages` — Set-based dedup tracker (by message ID)
-  - `LastTipTime` — Map-based cooldown tracker (by session ID)
+  - `LangTutorPlugin` — Plugin entry point, registers `chat.message` hook, orchestrates pipeline
+  - `PluginConfig` — Runtime configuration (enabled, nativeLanguages, forcedLanguage, displayMethod, mode)
+  - `messageIDCache` — Bounded dedup cache (Map<sessionID, string[]>, last 100 messageIDs per session)
+  - `lastTipTime` — Map-based cooldown tracker (by session ID)
+  - `tipsQueue` — TipsQueue with per-session AbortController for rapid-fire handling
 
 ## Data Flow Topology
 
@@ -24,7 +25,7 @@ independently per agent runtime. Each agent port is a self-contained instance.
 User sends message
         |
         v
-Agent hook fires (e.g., before-tool-execute)
+chat.message hook fires (provides sessionID, model, messageID, output.parts)
         |
         v
 Plugin reads config from agent config file (live, no cache)
@@ -36,14 +37,11 @@ Plugin reads config from agent config file (live, no cache)
 [Gate 2] Cooldown elapsed?   --No--> silently return
         | Yes
         v
-Fetch session messages via SDK
-        |
-        v
-Find latest user message (iterate backwards by role === "user")
-        |
-        v
-[Gate 3] Already processed?  --Yes--> silently return
+[Gate 3] messageID already processed?  --Yes--> silently return (bounded cache)
         | No
+        v
+Extract user text from output.parts (filter TextPart entries)
+        |
         v
 stripCodeBlocks(): ```...``` -> [CODE BLOCK], `code` -> [CODE]
         |
@@ -51,8 +49,14 @@ stripCodeBlocks(): ```...``` -> [CODE BLOCK], `code` -> [CODE]
 detectLanguage() via franc-min (ISO 639-3)
         |
         v
-[Gate 4] Is native language? --Yes--> silently return (no API call)
+[Gate 4] Is native language (normalized)? --Yes--> silently return (no API call)
         | No
+        v
+Resolve model: tipModel config > input.model.modelID > top-level model
+        |
+        v
+Resolve provider config from opencode.json (baseURL, apiKey)
+        |
         v
 fetchTip(): POST /chat/completions with writing-coach system prompt
         |
@@ -60,10 +64,10 @@ fetchTip(): POST /chat/completions with writing-coach system prompt
 [Gate 5] Response is [OK]?   --Yes--> silently return
         | No
         v
-displayTip(): inline prompt or notification
+displayTip(): inline prompt (noReply) or toast notification
         |
         v
-Record lastTipTime, mark message as processed
+Record lastTipTime, add messageID to dedup cache
 ```
 
 ## Integration Points
@@ -79,7 +83,7 @@ Record lastTipTime, mark message as processed
 
 - **Single runtime**: Each agent plugin runs entirely in that agent's process.
   There is no cross-agent communication, shared database, or server.
-- **No persistence**: All state is in-memory (dedup Set, cooldown Map).
+- **No persistence**: All state is in-memory (bounded messageIDCache, cooldown Map, AbortControllers).
   Restarting the agent resets all state.
 - **LLM dependency**: Tip quality depends entirely on the configured LLM's
   instruction-following ability. The plugin assumes the model can return
@@ -95,3 +99,4 @@ Record lastTipTime, mark message as processed
 |------|--------|-------------|
 | 2026-05-30 | init-profile | Initial architecture canvas — single-plugin, single-context topology |
 | 2026-05 | add-lang-tutor-plugin | Added first agent plugin implementation; established hook-based data flow pattern |
+| 2026-05-31 | switch-to-chat-message-hook | Migrated from tool.execute.before to chat.message hook; added ISO 639 normalization; removed unbounded processedMessages Set |

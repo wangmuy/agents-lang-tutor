@@ -1,27 +1,39 @@
 ## ADDED Requirements
 
 ### Requirement: Plugin intercepts user chat messages
-The plugin SHALL register a `chat.message` hook that fires on every user message in any session.
+The plugin SHALL register a `chat.message` hook that fires on every user message in any session. The hook receives `sessionID`, `model` (providerID + modelID), `messageID`, and the user message content via `output.parts`.
 
-#### Scenario: User sends a text message
-- **WHEN** a user submits a message with `role: "user"` and non-empty `content`
-- **THEN** the plugin processes the message for a language tip
+#### Scenario: User sends a text message via chat.message hook
+- **WHEN** a user submits a message and the `chat.message` hook fires with `output.parts` containing text content
+- **THEN** the plugin extracts text from `TextPart` entries in `output.parts`, concatenates them, and processes the message for a language tip
 
-#### Scenario: Non-user message arrives
-- **WHEN** a message arrives with `role` other than `"user"` (e.g., `"assistant"`, `"system"`)
+#### Scenario: Non-user message arrives via chat.message hook
+- **WHEN** a `chat.message` event fires with a message whose `role` is not `"user"`
 - **THEN** the plugin ignores the message and returns immediately
 
-#### Scenario: User sends an empty message
-- **WHEN** a user submits a message with empty `content`
+#### Scenario: User sends an empty message via chat.message hook
+- **WHEN** a `chat.message` event fires and all `TextPart` entries in `output.parts` have empty `text` fields
 - **THEN** the plugin ignores the message and returns immediately
+
+#### Scenario: Dedup via messageID
+- **WHEN** the `chat.message` hook fires with a `messageID` that was already processed in the same session
+- **THEN** the plugin skips tip generation for that message (bounded dedup cache, last 100 messageIDs per session)
 
 ---
 
 ### Requirement: Plugin discovers provider configuration
-The plugin SHALL determine the provider's baseURL and apiKey by reading the project's `opencode.json` and the user's global `opencode.json`.
+The plugin SHALL determine the provider's baseURL and apiKey by reading the project's `opencode.json` and the user's global `opencode.json`. The model ID SHALL come from `input.model.modelID` (from the `chat.message` hook) unless overridden by the `tipModel` plugin option.
+
+#### Scenario: Model from chat.message hook input
+- **WHEN** the `chat.message` hook provides `input.model.modelID` and no `tipModel` plugin option is set
+- **THEN** the plugin uses `input.model.modelID` to resolve the provider configuration
+
+#### Scenario: tipModel overrides hook model
+- **WHEN** the `tipModel` plugin option is set
+- **THEN** the plugin uses `tipModel` instead of `input.model.modelID` to resolve the provider configuration
 
 #### Scenario: Config found in project opencode.json
-- **WHEN** `{ctx.worktree}/opencode.json` exists and contains a provider matching `input.model.providerID`
+- **WHEN** `{ctx.worktree}/opencode.json` exists and contains a provider matching the resolved model ID
 - **THEN** the plugin extracts `baseURL` and `apiKey` from that provider's `options` and resolves `{env:NAME}` patterns to `process.env`
 
 #### Scenario: Config found in user home opencode.json
@@ -60,10 +72,10 @@ The plugin SHALL replace fenced code blocks and inline backtick code with placeh
 ---
 
 ### Requirement: Plugin filters native language via client-side detection
-The plugin SHALL use language detection to skip tip generation when the user's text is in a configured native language.
+The plugin SHALL use language detection to skip tip generation when the user's text is in a configured native language. Both ISO 639-1 and ISO 639-3 codes SHALL be accepted for `nativeLanguages` (normalized internally).
 
 #### Scenario: Text detected as native language
-- **WHEN** `nativeLanguages` is configured (e.g., `["en", "zh"]`) and language detection identifies the user's text as one of those languages
+- **WHEN** `nativeLanguages` is configured (e.g., `["en", "zh"]`) and language detection identifies the user's text as one of those languages (after normalization to ISO 639-3)
 - **THEN** the plugin skips tip generation entirely for that message without making any API call
 
 #### Scenario: No nativeLanguages configured
@@ -110,7 +122,7 @@ The plugin SHALL make an independent HTTP POST to `<baseURL>/chat/completions` w
 
 #### Scenario: API call fails
 - **WHEN** the `fetch()` call throws an error or returns a non-2xx status
-- **THEN** the plugin logs the error to `console.error` and does not display any tip; no error is thrown into the main message pipeline
+- **THEN** the plugin logs the error and does not display any tip; no error is thrown into the main message pipeline
 
 #### Scenario: System prompt instructs writing analysis
 - **WHEN** the plugin sends the LLM request
@@ -119,15 +131,19 @@ The plugin SHALL make an independent HTTP POST to `<baseURL>/chat/completions` w
 ---
 
 ### Requirement: Plugin displays tip inline without AI context pollution
-The plugin SHALL display the language tip using `client.session.prompt({ noReply: true })` with a text part containing a visual prefix.
+The plugin SHALL display the language tip using `client.session.prompt({ noReply: true })` with a text part containing a visual prefix, or via toast notification.
 
 #### Scenario: Tip displayed after user message
-- **WHEN** the LLM returns a valid tip
+- **WHEN** the LLM returns a valid tip and `displayMethod` is `"prompt"`
 - **THEN** `ctx.client.session.prompt()` is called with `noReply: true` and `parts: [{ type: "text", text: tip }]` for the current session
+
+#### Scenario: Tip displayed as toast
+- **WHEN** the LLM returns a valid tip and `displayMethod` is `"toast"`
+- **THEN** `ctx.client.tui.publish()` is called with a toast message containing the tip
 
 #### Scenario: Tip message format
 - **WHEN** a tip is displayed
-- **THEN** the text content SHALL begin with `[LANG-TIP]` prefix (e.g., `[LANG-TIP] "done" is more natural than "did" here`) to distinguish it from conversation messages and enable grep/strip automation
+- **THEN** the text content SHALL begin with `[LANG-TIP]` prefix to distinguish it from conversation messages and enable grep/strip automation
 
 #### Scenario: noReply prevents AI from responding
 - **WHEN** a tip message is sent with `noReply: true`
@@ -135,12 +151,16 @@ The plugin SHALL display the language tip using `client.session.prompt({ noReply
 
 ---
 
-### Requirement: Plugin is non-blocking
-The plugin SHALL initiate the LLM request asynchronously without blocking the return of the `chat.message` hook.
+### Requirement: Plugin is non-blocking (sync/async mode)
+In `mode: "async"`, the plugin SHALL initiate the LLM request without blocking the return of the `chat.message` hook. In `mode: "sync"` (default), the plugin SHALL await the LLM request before returning, because some providers only allow one request at a time.
 
-#### Scenario: AI responds while tip is being generated
-- **WHEN** the plugin starts an async LLM request for the tip
+#### Scenario: Async mode — AI responds while tip is being generated
+- **WHEN** `mode` is `"async"` and the plugin starts an LLM request for the tip
 - **THEN** the `chat.message` hook returns immediately, and the main AI begins generating its response without waiting for the tip
+
+#### Scenario: Sync mode — tip completes before AI starts
+- **WHEN** `mode` is `"sync"` and the plugin starts an LLM request for the tip
+- **THEN** the `chat.message` hook awaits the tip request, and the main AI does not begin processing until the tip request completes (or fails)
 
 ---
 
@@ -158,7 +178,7 @@ The plugin SHALL abort any in-flight tip request for a session when a new user m
 ---
 
 ### Requirement: Plugin is configurable via plugin options
-The plugin SHALL accept configuration through the `opencode.json` plugin entry's options array.
+The plugin SHALL accept configuration through the `opencode.json` plugin entry's options array. Both ISO 639-1 and ISO 639-3 codes SHALL be accepted for `nativeLanguages`. ISO 639-1 codes, ISO 639-3 codes, and common English language names SHALL be accepted for `forcedLanguage`.
 
 #### Scenario: Plugin enabled by default
 - **WHEN** no `enabled` option is specified
@@ -168,13 +188,17 @@ The plugin SHALL accept configuration through the `opencode.json` plugin entry's
 - **WHEN** the plugin options include `{ "enabled": false }`
 - **THEN** the plugin registers but returns immediately on every `chat.message` event
 
-#### Scenario: forcedLanguage restricts tip language
-- **WHEN** the plugin options include `{ "forcedLanguage": "Japanese" }`
-- **THEN** the system prompt instructs the LLM to provide tips in Japanese about the Japanese writing quality of the user's text
+#### Scenario: forcedLanguage with ISO 639-1 code
+- **WHEN** the plugin options include `{ "forcedLanguage": "es" }`
+- **THEN** the system prompt instructs the LLM to provide tips in "Spanish" about the Spanish writing quality of the user's text
 
-#### Scenario: nativeLanguages gate prevents API calls for native languages
-- **WHEN** the plugin options include `{ "nativeLanguages": ["en", "zh"] }`
-- **THEN** messages whose detected language matches an entry in the list are skipped without any API call
+#### Scenario: forcedLanguage with language name
+- **WHEN** the plugin options include `{ "forcedLanguage": "Japanese" }`
+- **THEN** the system prompt instructs the LLM to provide tips in "Japanese" about the Japanese writing quality of the user's text
+
+#### Scenario: nativeLanguages with mixed ISO codes
+- **WHEN** the plugin options include `{ "nativeLanguages": ["en", "zh", "eng"] }`
+- **THEN** messages whose detected language (ISO 639-3) matches a normalized entry in the list are skipped without any API call
 
 #### Scenario: cooldownMs prevents back-to-back tips
 - **WHEN** `cooldownMs` is set and the time since the last tip is less than the cooldown

@@ -53,6 +53,36 @@
 
 - [x] 9.1 Add plugin entry to `opencode.json` with default options
 - [x] 9.2 Add `franc-min` to `.opencode/package.json` dependencies
-- [ ] 9.3 End-to-end test: send messages in opencode, verify tips appear inline, tips don't clutter AI context, native language messages skip API call, rapid-fire is handled
+- [x] 9.3 End-to-end test: send messages in opencode, verify tips appear inline, tips don't clutter AI context, native language messages skip API call, rapid-fire is handled (manually verified)
 - [x] 9.4 Verify code blocks are stripped with placeholders before LLM receives text
 - [x] 9.5 Verify [OK] response from LLM suppresses the tip display
+
+## 10. ISO 639 normalization (merged from switch-to-chat-message-hook)
+
+- [x] 10.1 Add `ISO_639_1_TO_3` static lookup table mapping all 184 ISO 639-1 codes to ISO 639-3 codes
+- [x] 10.2 Add `ISO_639_3_TO_NAME` static lookup table mapping ISO 639-3 codes to English language names
+- [x] 10.3 Implement `normalizeTo6393(value)` — looks up 2-char codes, passes 3-char through
+- [x] 10.4 Implement `normalizeNativeLanguages(nativeLanguages)` — normalizes and deduplicates
+- [x] 10.5 Implement `resolveForcedLanguageName(forcedLanguage)` — normalizes to 639-3, resolves to name
+- [x] 10.6 Wire normalization into `buildSystemPrompt`
+- [x] 10.7 Wire normalization into `isNativeLanguage`
+
+## 11. Hook switch: chat.message handler (merged from switch-to-chat-message-hook)
+
+- [x] 11.1 Implement `chat.message` hook handler with full tip pipeline
+- [x] 11.2 Implement bounded `messageID` dedup cache
+- [x] 11.3 Use `input.model.modelID` from chat.message hook as fallback model ID
+- [x] 11.4 Remove SDK message-fetch workaround
+- [x] 11.5 Remove unbounded `processedMessages` Set
+- [x] 11.6 Remove `tool.execute.before` handler (was disabled stub, now fully removed)
+
+## 12. Sync/async mode & AbortController (merged from switch-to-chat-message-hook)
+
+- [x] 12.1 Sync mode: await `runTip()` before returning
+- [x] 12.2 Async mode: enqueue via TipsQueue (fire-and-forget)
+
+## 13. Documentation updates (merged from switch-to-chat-message-hook)
+
+- [x] 13.1 Update `IMPL-OPENCODE.md` — hook section describes `chat.message`
+- [x] 13.2 Update `AGENTS.md` — hook line says `chat.message`
+- [x] 13.3 Update `README.md` — ISO 639-1/639-3 examples in config table
