@@ -30,7 +30,7 @@ Add to `opencode.json`:
   "plugin": [
     ["./.opencode/plugin/lang-tutor/index.ts", {
       "enabled": true,
-      "nativeLanguages": ["eng"],
+      "nativeLanguages": ["en", "zh"],
       "forcedLanguage": "es",
       "cooldownMs": 10000,
       "tipModel": "mango/deepseek-v4-pro",
@@ -44,12 +44,13 @@ Add to `opencode.json`:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `enabled` | bool | `true` | Enable/disable the plugin (live, no restart needed) |
-| `nativeLanguages` | ISO 639-3[] | `[]` | Languages the user already knows well — tips are skipped for these |
-| `forcedLanguage` | string | — | Always coach in this language, regardless of detected language |
+| `nativeLanguages` | string[] | `[]` | Languages the user already knows well — tips are skipped for these. Accepts ISO 639-1 (`"en"`, `"es"`) or ISO 639-3 (`"eng"`, `"spa"`). Both formats work; values are normalized internally. |
+| `forcedLanguage` | string | — | Always coach in this language. Accepts ISO 639-1 (`"es"`), ISO 639-3 (`"spa"`), or language names (`"Spanish"`). All produce the same result. |
 | `cooldownMs` | number | — | Minimum ms between tips in the same session |
-| `tipModel` | string | top-level `model` | Model to use for coaching tips (falls back to `model` if unset) |
+| `tipModel` | string | hook model | Model to use for coaching tips (falls back to the session's active model from the `chat.message` hook, then to top-level `model` if unset) |
 | `displayMethod` | `"prompt"` or `"toast"` | `"prompt"` | How to display tips: inline in agent stream, or as a toast notification |
-| `mode` | `"sync"` or `"async"` | `"sync"` | `sync` blocks the tool call until tip is ready; `async` fires tip in background |
+| `toastDurationMs` | number | `8000` | Duration in ms for toast notifications (only applies when `displayMethod` is `"toast"`). Default 8 seconds. |
+| `mode` | `"sync"` or `"async"` | `"sync"` | `sync` awaits the tip request before returning (needed for providers with concurrency=1); `async` fires tip in background |
 
 The plugin re-reads config on every message, so you can toggle `enabled` without restarting.
 

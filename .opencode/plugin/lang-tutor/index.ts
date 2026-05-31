@@ -7,7 +7,7 @@ import * as fs from "fs"
 // File-based logger
 // ---------------------------------------------------------------------------
 
-const LOG_FILE = path.join(os.tmpdir(), "lang-tutor.log")
+const BASE_LOG_FILE = path.join(os.tmpdir(), "lang-tutor.log")
 
 enum LogLevel {
   DEBUG = "DEBUG",
@@ -16,25 +16,30 @@ enum LogLevel {
   ERROR = "ERROR",
 }
 
-function log(level: LogLevel, message: string, data?: unknown): void {
+function getLogFile(sessionID?: string): string {
+  if (sessionID) return path.join(os.tmpdir(), `lang-tutor-${sessionID}.log`)
+  return BASE_LOG_FILE
+}
+
+function log(level: LogLevel, message: string, data?: unknown, sessionID?: string): void {
+  const logFile = getLogFile(sessionID)
   const timestamp = new Date().toISOString()
   const serialized = data instanceof Error
     ? { name: data.name, message: data.message, stack: data.stack?.split("\n").slice(0, 4).join("|") }
     : data
   const dataStr = serialized !== undefined ? " " + JSON.stringify(serialized) : ""
   const line = `[${timestamp}] [${level}] ${message}${dataStr}\n`
-  fs.appendFileSync(LOG_FILE, line, "utf-8")
+  fs.appendFileSync(logFile, line, "utf-8")
   if (level === LogLevel.ERROR) {
     console.error(`[lang-tutor] ${message}`, data ?? "")
   }
 }
 
-// Rotate log file if it exceeds 5MB
-function ensureLogSize(): void {
+function ensureLogSize(logFile: string): void {
   try {
-    const stat = fs.statSync(LOG_FILE)
+    const stat = fs.statSync(logFile)
     if (stat.size > 5 * 1024 * 1024) {
-      fs.renameSync(LOG_FILE, LOG_FILE + ".old")
+      fs.renameSync(logFile, logFile + ".old")
       log(LogLevel.INFO, "Log rotated (exceeded 5MB)")
     }
   } catch {
@@ -42,7 +47,7 @@ function ensureLogSize(): void {
   }
 }
 
-ensureLogSize()
+ensureLogSize(BASE_LOG_FILE)
 log(LogLevel.INFO, "Plugin loaded")
 
 // ---------------------------------------------------------------------------
@@ -56,6 +61,7 @@ interface PluginConfig {
   cooldownMs?: number
   tipModel?: string
   displayMethod?: "prompt" | "toast"
+  toastDurationMs?: number
   mode?: "sync" | "async"
 }
 
@@ -77,6 +83,106 @@ interface ProviderConfig {
 }
 
 // ---------------------------------------------------------------------------
+// ISO 639 code normalization
+// ---------------------------------------------------------------------------
+
+const ISO_639_1_TO_3: Record<string, string> = {
+  aa: "aar", ab: "abk", ae: "ave", af: "afr", ak: "aka", am: "amh", an: "arg",
+  ar: "ara", as: "asm", av: "ava", ay: "aym", az: "aze", ba: "bak", be: "bel",
+  bg: "bul", bh: "bih", bi: "bis", bm: "bam", bn: "ben", bo: "bod", br: "bre",
+  bs: "bos", ca: "cat", ce: "che", ch: "cha", co: "cos", cr: "cre", cs: "ces",
+  cu: "chu", cv: "chv", cy: "cym", da: "dan", de: "deu", dv: "div", dz: "dzo",
+  ee: "ewe", el: "ell", en: "eng", eo: "epo", es: "spa", et: "est", eu: "eus",
+  fa: "fas", ff: "ful", fi: "fin", fo: "fao", fr: "fra", fy: "fry", ga: "gle",
+  gd: "gla", gl: "glg", gn: "grn", gu: "guj", gv: "glv", ha: "hau", he: "heb",
+  hi: "hin", ho: "hmo", hr: "hrv", ht: "hat", hu: "hun", hy: "hye", hz: "her",
+  ia: "ina", id: "ind", ie: "ile", ig: "ibo", ii: "iii", ik: "ipk", io: "ido",
+  is: "isl", it: "ita", iu: "iku", ja: "jpn", jv: "jav", ka: "kat", kg: "kon",
+  ki: "kik", kj: "kua", kk: "kaz", kl: "kal", km: "khm", kn: "kan", ko: "kor",
+  kr: "kau", ks: "kas", ku: "kur", kv: "kom", kw: "cor", ky: "kir", la: "lat",
+  lb: "ltz", lg: "lug", li: "lim", ln: "lin", lo: "lao", lt: "lit", lu: "lub",
+  lv: "lav", mg: "mlg", mh: "mah", mi: "mri", mk: "mkd", ml: "mal", mn: "mon",
+  mr: "mar", ms: "msa", mt: "mlt", my: "mya", na: "nau", nb: "nob", nd: "nde",
+  ne: "nep", ng: "ndo", nl: "nld", nn: "nno", no: "nor", nr: "nbl", nv: "nav",
+  ny: "nya", oc: "oci", oj: "oji", om: "orm", or: "ori", os: "oss", pa: "pan",
+  pi: "pli", pl: "pol", ps: "pus", pt: "por", qu: "que", rm: "roh", rn: "run",
+  ro: "ron", ru: "rus", rw: "kin", sa: "san", sc: "srd", sd: "snd", se: "sme",
+  sg: "sag", si: "sin", sk: "slk", sl: "slv", sm: "smo", sn: "sna", so: "som",
+  sq: "sqi", sr: "srp", ss: "ssw", st: "sot", su: "sun", sv: "swe", sw: "swa",
+  ta: "tam", te: "tel", tg: "tgk", th: "tha", ti: "tir", tk: "tuk", tl: "tgl",
+  tn: "tsn", to: "ton", tr: "tur", ts: "tso", tt: "tat", tw: "twi", ty: "tah",
+  ug: "uig", uk: "ukr", ur: "urd", uz: "uzb", ve: "ven", vi: "vie", vo: "vol",
+  wa: "wln", wo: "wol", xh: "xho", yi: "yid", yo: "yor", za: "zha", zh: "zho",
+  zu: "zul",
+}
+
+const ISO_639_3_TO_NAME: Record<string, string> = {
+  aar: "Afar", abk: "Abkhazian", ave: "Avestan", afr: "Afrikaans", aka: "Akan",
+  amh: "Amharic", arg: "Aragonese", ara: "Arabic", asm: "Assamese", ava: "Avaric",
+  aym: "Aymara", aze: "Azerbaijani", bak: "Bashkir", bel: "Belarusian", bul: "Bulgarian",
+  bih: "Bihari", bis: "Bislama", bam: "Bambara", ben: "Bengali", bod: "Tibetan",
+  bre: "Breton", bos: "Bosnian", cat: "Catalan", che: "Chechen", cha: "Chamorro",
+  cos: "Corsican", cre: "Cree", ces: "Czech", chu: "Church Slavic", chv: "Chuvash",
+  cym: "Welsh", dan: "Danish", deu: "German", div: "Divehi", dzo: "Dzongkha",
+  ewe: "Ewe", ell: "Greek", eng: "English", epo: "Esperanto", spa: "Spanish",
+  est: "Estonian", eus: "Basque", fas: "Persian", ful: "Fulah", fin: "Finnish",
+  fao: "Faroese", fra: "French", fry: "Western Frisian", gle: "Irish", gla: "Scottish Gaelic",
+  glg: "Galician", grn: "Guarani", guj: "Gujarati", glv: "Manx", hau: "Hausa",
+  heb: "Hebrew", hin: "Hindi", hmo: "Hiri Motu", hrv: "Croatian", hat: "Haitian",
+  hun: "Hungarian", hye: "Armenian", her: "Herero", ina: "Interlingua", ind: "Indonesian",
+  ile: "Interlingue", ibo: "Igbo", iii: "Sichuan Yi", ipk: "Inupiaq", ido: "Ido",
+  isl: "Icelandic", ita: "Italian", iku: "Inuktitut", jpn: "Japanese", jav: "Javanese",
+  kat: "Georgian", kon: "Kongo", kik: "Kikuyu", kua: "Kuanyama", kaz: "Kazakh",
+  kal: "Kalaallisut", khm: "Khmer", kan: "Kannada", kor: "Korean", kau: "Kanuri",
+  kas: "Kashmiri", kur: "Kurdish", kom: "Komi", cor: "Cornish", kir: "Kirghiz",
+  lat: "Latin", ltz: "Luxembourgish", lug: "Ganda", lim: "Limburgish", lin: "Lingala",
+  lao: "Lao", lit: "Lithuanian", lub: "Luba-Katanga", lav: "Latvian", mlg: "Malagasy",
+  mah: "Marshallese", mri: "Maori", mkd: "Macedonian", mal: "Malayalam", mon: "Mongolian",
+  mar: "Marathi", msa: "Malay", mlt: "Maltese", mya: "Burmese", nau: "Nauru",
+  nob: "Norwegian Bokmål", nde: "North Ndebele", nep: "Nepali", ndo: "Ndonga",
+  nld: "Dutch", nno: "Norwegian Nynorsk", nor: "Norwegian", nbl: "South Ndebele",
+  nav: "Navajo", nya: "Chichewa", oci: "Occitan", oji: "Ojibwa", orm: "Oromo",
+  ori: "Oriya", oss: "Ossetian", pan: "Panjabi", pli: "Pali", pol: "Polish",
+  pus: "Pushto", por: "Portuguese", que: "Quechua", roh: "Romansh", run: "Rundi",
+  ron: "Romanian", rus: "Russian", kin: "Kinyarwanda", san: "Sanskrit", srd: "Sardinian",
+  snd: "Sindhi", sme: "Northern Sami", sag: "Sango", sin: "Sinhala", slk: "Slovak",
+  slv: "Slovenian", smo: "Samoan", sna: "Shona", som: "Somali", sqi: "Albanian",
+  srp: "Serbian", ssw: "Swati", sot: "Southern Sotho", sun: "Sundanese", swe: "Swedish",
+  swa: "Swahili", tam: "Tamil", tel: "Telugu", tgk: "Tajik", tha: "Thai",
+  tir: "Tigrinya", tuk: "Turkmen", tgl: "Tagalog", tsn: "Tswana", ton: "Tonga",
+  tur: "Turkish", tso: "Tsonga", tat: "Tatar", twi: "Twi", tah: "Tahitian",
+  uig: "Uighur", ukr: "Ukrainian", urd: "Urdu", uzb: "Uzbek", ven: "Venda",
+  vie: "Vietnamese", vol: "Volapük", wln: "Walloon", wol: "Wolof", xho: "Xhosa",
+  yid: "Yiddish", yor: "Yoruba", zha: "Zhuang", zho: "Chinese", zul: "Zulu",
+}
+
+function normalizeTo6393(value: string): string {
+  if (value.length === 2) {
+    return ISO_639_1_TO_3[value] ?? value
+  }
+  return value
+}
+
+function normalizeNativeLanguages(nativeLanguages: string[]): string[] {
+  const normalized = nativeLanguages.map(normalizeTo6393)
+  return [...new Set(normalized)]
+}
+
+const NAME_TO_639_3: Record<string, string> = {}
+for (const [code, name] of Object.entries(ISO_639_3_TO_NAME)) {
+  NAME_TO_639_3[name.toLowerCase()] = code
+}
+
+function resolveForcedLanguageName(forcedLanguage: string): string {
+  const as6393 = normalizeTo6393(forcedLanguage)
+  const fromCode = ISO_639_3_TO_NAME[as6393]
+  if (fromCode) return fromCode
+  const fromName = NAME_TO_639_3[forcedLanguage.toLowerCase()]
+  if (fromName) return ISO_639_3_TO_NAME[fromName] ?? forcedLanguage
+  return forcedLanguage
+}
+
+// ---------------------------------------------------------------------------
 // SYSTEM PROMPT
 // ---------------------------------------------------------------------------
 
@@ -84,7 +190,8 @@ const BASE_SYSTEM_PROMPT = `You are a writing coach in a terminal-based AI codin
 
 function buildSystemPrompt(forcedLanguage?: string): string {
   if (forcedLanguage) {
-    return `You are a writing coach focusing on ${forcedLanguage}. Analyze the user's text below for grammar, clarity, vocabulary, phrasing, and naturalness in ${forcedLanguage}. If the text is already well-written and natural, respond ONLY with: [OK]. If you notice an issue, provide exactly one short, specific correction or improvement suggestion in ${forcedLanguage}. Under 25 words. Output ONLY the tip or [OK] — no preamble, no quotation marks.`
+    const langName = resolveForcedLanguageName(forcedLanguage)
+    return `You are a writing coach focusing on ${langName}. Analyze the user's text below for grammar, clarity, vocabulary, phrasing, and naturalness in ${langName}. If the text is already well-written and natural, respond ONLY with: [OK]. If you notice an issue, provide exactly one short, specific correction or improvement suggestion in ${langName}. Under 25 words. Output ONLY the tip or [OK] — no preamble, no quotation marks.`
   }
   return BASE_SYSTEM_PROMPT
 }
@@ -229,7 +336,8 @@ function detectLanguage(text: string): string {
 
 function isNativeLanguage(lang: string, nativeLanguages?: string[]): boolean {
   if (!nativeLanguages || nativeLanguages.length === 0) return false
-  return nativeLanguages.includes(lang)
+  const normalized = normalizeNativeLanguages(nativeLanguages)
+  return normalized.includes(lang)
 }
 
 function wordCount(text: string): number {
@@ -341,48 +449,77 @@ async function fetchTip(
 // Display
 // ---------------------------------------------------------------------------
 
-async function displayTipPrompt(
-  client: { session: { prompt: (args: unknown) => unknown } },
-  sessionID: string,
+async function displayTipToast(
+  client: { tui: { publish: (params?: { body?: unknown }) => Promise<unknown> } },
   tip: string,
+  duration: number,
 ): Promise<void> {
-  await (client.session.prompt as (args: {
-    path: { id: string }
-    body: { noReply: boolean; parts: Array<{ type: string; text: string }> }
-  }) => Promise<unknown>)({
-    path: { id: sessionID },
+  await client.tui.publish({
     body: {
-      noReply: true,
-      parts: [{ type: "text", text: `[LANG-TIP] ${tip}` }],
+      type: "tui.toast.show",
+      properties: {
+        message: `[LANG-TIP] ${tip}`,
+        variant: "info",
+        duration,
+      },
     },
   })
 }
 
-async function displayTipToast(
-  client: { tui: { showToast: (args: unknown) => unknown } },
+async function displayTipPrompt(
+  client: { session: { prompt: (params: { sessionID: string; noReply?: boolean; parts?: Array<{ type: string; text: string }> }) => Promise<unknown> } },
+  sessionID: string,
   tip: string,
 ): Promise<void> {
-  await (client.tui.showToast as (args: {
-    body: { message: string; variant: string; duration?: number }
-  }) => Promise<unknown>)({
-    body: {
-      message: `[LANG-TIP] ${tip}`,
-      variant: "info",
-      duration: 8000,
-    },
+  await client.session.prompt({
+    sessionID,
+    noReply: true,
+    parts: [{ type: "text", text: `[LANG-TIP] ${tip}` }],
   })
 }
 
 async function displayTip(
-  client: { session: { prompt: (args: unknown) => unknown }; tui: { showToast: (args: unknown) => unknown } },
+  client: { session: { prompt: (params: { sessionID: string; noReply?: boolean; parts?: Array<{ type: string; text: string }> }) => Promise<unknown> }; tui: { publish: (params?: { body?: unknown }) => Promise<unknown> } },
   sessionID: string,
   tip: string,
   method: "prompt" | "toast",
+  toastDuration: number,
 ): Promise<void> {
   if (method === "toast") {
-    await displayTipToast(client, tip)
+    await displayTipToast(client, tip, toastDuration)
   } else {
     await displayTipPrompt(client, sessionID, tip)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// TipsQueue — per-session AbortController for rapid-fire messages
+// ---------------------------------------------------------------------------
+
+class TipsQueue {
+  private controllers = new Map<string, AbortController>()
+
+  enqueue(sessionID: string, fn: (signal: AbortSignal) => Promise<void>): void {
+    const prev = this.controllers.get(sessionID)
+    if (prev) {
+      prev.abort()
+      log(LogLevel.DEBUG, "TipsQueue: aborted previous request", { sessionID })
+    }
+    const controller = new AbortController()
+    this.controllers.set(sessionID, controller)
+    fn(controller.signal)
+      .catch((err) => {
+        if (err instanceof Error && err.name === "AbortError") {
+          log(LogLevel.DEBUG, "TipsQueue: request aborted", { sessionID })
+        } else {
+          log(LogLevel.ERROR, "TipsQueue: request failed", err)
+        }
+      })
+      .finally(() => {
+        if (this.controllers.get(sessionID) === controller) {
+          this.controllers.delete(sessionID)
+        }
+      })
   }
 }
 
@@ -390,73 +527,83 @@ async function displayTip(
 // Main plugin
 // ---------------------------------------------------------------------------
 
-const processedMessages = new Set<string>()
+const messageIDCache = new Map<string, string[]>()
+const MAX_CACHE_PER_SESSION = 100
 const lastTipTime = new Map<string, number>()
+const tipsQueue = new TipsQueue()
+
+function isMessageProcessed(sessionID: string, messageID: string | undefined): boolean {
+  if (!messageID) return false
+  const cached = messageIDCache.get(sessionID) ?? []
+  if (cached.includes(messageID)) return true
+  const updated = [...cached, messageID]
+  if (updated.length > MAX_CACHE_PER_SESSION) {
+    updated.splice(0, updated.length - MAX_CACHE_PER_SESSION)
+  }
+  messageIDCache.set(sessionID, updated)
+  return false
+}
 
 export const LangTutorPlugin: Plugin = async (ctx) => {
   return {
-    "tool.execute.before": async (input: { sessionID?: string }, _output: unknown) => {
+    "chat.message": async (
+      input: { sessionID: string; agent?: string; model?: { providerID: string; modelID: string }; messageID?: string; variant?: string },
+      output: { message: { id?: string; role?: string }; parts: Array<{ type?: string; text?: string }> },
+    ) => {
       const sessionID = input.sessionID
       if (!sessionID) return
 
-      // Re-read config
+      if (isMessageProcessed(sessionID, input.messageID ?? output.message?.id)) {
+        log(LogLevel.DEBUG, "chat.message: messageID already processed", { messageID: input.messageID }, sessionID)
+        return
+      }
+
       const rawConfig = readOpencodeConfig(ctx.worktree)
       if (!rawConfig) return
 
       const pluginOpts = resolvePluginOptions(rawConfig)
       if (pluginOpts.enabled === false) return
 
-      // Cooldown check
       if (pluginOpts.cooldownMs && pluginOpts.cooldownMs > 0) {
         const last = lastTipTime.get(sessionID) ?? 0
-        if (Date.now() - last < pluginOpts.cooldownMs) return
+        if (Date.now() - last < pluginOpts.cooldownMs) {
+          log(LogLevel.DEBUG, "chat.message: cooldown active", { cooldownMs: pluginOpts.cooldownMs }, sessionID)
+          return
+        }
       }
 
-      const modelID = pluginOpts.tipModel ?? rawConfig.model
-      if (!modelID) return
+      const modelID = pluginOpts.tipModel ?? input.model?.modelID ?? rawConfig.model
+      if (!modelID) {
+        log(LogLevel.WARN, "chat.message: no model ID available", undefined, sessionID)
+        return
+      }
 
       const providerConfig = resolveProviderConfig(rawConfig, modelID)
       if (!providerConfig) return
 
-      // Fetch session messages synchronously to find latest user message
-      let userContent = ""
-      let userMessageID = ""
-      try {
-        const msgsResult = await (ctx.client.session.messages as (args: {
-          path: { id: string }
-        }) => Promise<{ data?: Array<{ info?: { id?: string; role?: string }; parts?: Array<{ type?: string; text?: string }> }> }>)({
-          path: { id: sessionID },
-        })
+      const userContent = (output.parts ?? [])
+        .filter((p): p is { type: "text"; text: string } => p.type === "text" && !!p.text)
+        .map((p) => p.text)
+        .join("")
+      if (!userContent) return
 
-        const msgs = msgsResult.data ?? []
-        for (let i = msgs.length - 1; i >= 0; i--) {
-          const msg = msgs[i]
-          if (msg.info?.role === "user") {
-            userMessageID = msg.info.id ?? ""
-            const parts = msg.parts ?? []
-            for (const part of parts) {
-              if (part.type === "text" && part.text) {
-                userContent += part.text
-              }
-            }
-            break
-          }
-        }
-      } catch {
+      log(LogLevel.INFO, "chat.message: processing tip", { modelID, contentLength: userContent.length, mode: pluginOpts.mode ?? "sync" }, sessionID)
+
+      const lang = detectLanguage(userContent)
+      if (isNativeLanguage(lang, pluginOpts.nativeLanguages)) {
+        log(LogLevel.INFO, "chat.message: native language detected, skipping", { lang }, sessionID)
         return
       }
 
-      // Skip if no user content or already processed
-      if (!userContent || !userMessageID) return
-      if (processedMessages.has(userMessageID)) return
-      processedMessages.add(userMessageID)
-
-      log(LogLevel.INFO, "tool.execute.before: processing tip", { modelID, contentLength: userContent.length, mode: pluginOpts.mode ?? "sync" })
+      const wc = wordCount(userContent)
+      if (wc < 10 && lang === "und") {
+        log(LogLevel.DEBUG, "chat.message: short text with uncertain language, proceeding to LLM", undefined, sessionID)
+      }
 
       const stripped = stripCodeBlocks(userContent)
       const systemPrompt = buildSystemPrompt(pluginOpts.forcedLanguage)
 
-      const runTip = async () => {
+      const runTip = async (signal: AbortSignal) => {
         try {
           const tip = await fetchTip(
             providerConfig.baseURL,
@@ -465,27 +612,38 @@ export const LangTutorPlugin: Plugin = async (ctx) => {
             systemPrompt,
             stripped,
             200,
-            undefined,
+            signal,
             true,
           )
 
           if (!tip || isOKResponse(tip)) {
-            log(LogLevel.DEBUG, "tool.execute.before: no actionable tip (null or [OK])", { tip })
+            log(LogLevel.DEBUG, "chat.message: no actionable tip (null or [OK])", { tip }, sessionID)
             return
           }
 
-          log(LogLevel.INFO, "tool.execute.before: displaying tip", { tip, method: pluginOpts.displayMethod ?? "prompt" })
-          await displayTip(ctx.client, sessionID, tip, pluginOpts.displayMethod ?? "prompt")
+          log(LogLevel.INFO, "chat.message: displaying tip", { tip, method: pluginOpts.displayMethod ?? "prompt" }, sessionID)
+          try {
+            await displayTip(ctx.client, sessionID, tip, pluginOpts.displayMethod ?? "prompt", pluginOpts.toastDurationMs ?? 8000)
+          } catch (displayErr) {
+            log(LogLevel.ERROR, "chat.message: displayTip failed", displayErr, sessionID)
+          }
           lastTipTime.set(sessionID, Date.now())
         } catch (err) {
-          log(LogLevel.ERROR, "Tip request failed", err)
+          if (err instanceof Error && err.name === "AbortError") return
+          log(LogLevel.ERROR, "Tip request failed", err, sessionID)
         }
       }
 
       if (pluginOpts.mode === "async") {
-        Promise.resolve().then(runTip)
+        tipsQueue.enqueue(sessionID, runTip)
       } else {
-        await runTip()
+        const controller = new AbortController()
+        try {
+          await runTip(controller.signal)
+        } catch (err) {
+          if (err instanceof Error && err.name === "AbortError") return
+          log(LogLevel.ERROR, "Tip request failed (sync)", err, sessionID)
+        }
       }
     },
   }

@@ -6,41 +6,54 @@
 
 ## Critical: hook system
 
-Uses **`tool.execute.before`** hook, which fires before each tool call in a session. The plugin reads the latest user message from the session via SDK fetch.
+Uses **`chat.message`** hook, which fires once per user message in a session. The hook provides the message content directly via `output.parts`.
 
 ```ts
 return {
-  "tool.execute.before": async (input: { sessionID?: string }, _output: unknown) => {
-    const sessionID = input.sessionID
-    if (!sessionID) return
-    // Re-read config, fetch messages, find latest user message, process tip
+  "chat.message": async (input, output) => {
+    // input: { sessionID, agent?, model?: { providerID, modelID }, messageID?, variant? }
+    // output: { message: UserMessage, parts: Part[] }
+    const userContent = output.parts
+      .filter(p => p.type === "text" && !!p.text)
+      .map(p => p.text)
+      .join("")
   }
 }
 ```
 
-The old `event` / `message.updated` / `chat.message` hooks never fired reliably in opencode v1.15.10, so the implementation migrated to `tool.execute.before`.
+## Critical: message dedup
 
-## Critical: getting user message content
-
-Event payloads do **not** contain message text. Must fetch via SDK:
+The `chat.message` hook should fire once per message, but a bounded `messageID` dedup cache (last 100 messageIDs per session) provides a safety net against duplicate processing.
 
 ```ts
-ctx.client.session.messages({ path: { id: sessionID } })
+const messageIDCache = new Map<string, string[]>() // sessionID → messageIDs[]
+```
+
+No unbounded `Set` — memory is strictly bounded.
+
+## Critical: ISO 639 normalization
+
+`nativeLanguages` and `forcedLanguage` accept both ISO 639-1 (`"en"`, `"es"`) and ISO 639-3 (`"eng"`, `"spa"`) codes, plus common English language names for `forcedLanguage` (`"Spanish"`). All values are normalized to ISO 639-3 at runtime before comparison with franc-min output.
+
+```ts
+normalizeTo6393("en")   // → "eng"
+resolveForcedLanguageName("es") // → "Spanish"
+normalizeNativeLanguages(["en", "zh", "eng"]) // → ["eng", "zho"]
 ```
 
 ## Config
 
 Config is re-read from `opencode.json` on every message — supports live enable/disable without restart. Plugin path in config must be relative (`./.opencode/plugin/...`), never `file://` (hostname error on Linux).
 
-Options: `enabled` (bool), `nativeLanguages` (ISO 639-3[]), `forcedLanguage` (string), `cooldownMs` (number), `tipModel` (string), `displayMethod` (`"prompt"` or `"toast"`, default: `"prompt"`), `mode` (`"sync"` or `"async"`, default: `"sync"`).
+Options: `enabled` (bool), `nativeLanguages` (ISO 639-1 or 639-3[]), `forcedLanguage` (ISO 639-1, 639-3, or language name), `cooldownMs` (number), `tipModel` (string), `displayMethod` (`"prompt"` or `"toast"`, default: `"prompt"`), `toastDurationMs` (number, default: `8000`), `mode` (`"sync"` or `"async"`, default: `"sync"`).
 
-If `tipModel` is not set, falls back to the top-level `model` field in the config.
+If `tipModel` is not set, falls back to `input.model.modelID` from the `chat.message` hook, then to the top-level `model` field in the config.
 
 Example config:
 ```json
 ["./.opencode/plugin/lang-tutor/index.ts", {
   "enabled": true,
-  "nativeLanguages": ["eng"],
+  "nativeLanguages": ["en", "zh"],
   "forcedLanguage": "es",
   "cooldownMs": 10000,
   "tipModel": "mango/deepseek-v4-pro",
@@ -48,6 +61,11 @@ Example config:
   "mode": "async"
 }]
 ```
+
+## Sync vs async mode
+
+- **`mode: "sync"`** (default): The `chat.message` handler awaits the tip request before returning. Necessary for providers that only allow one request at a time (concurrency=1). The main AI response is delayed until the tip request completes.
+- **`mode: "async"`**: The tip request is enqueued via `TipsQueue` and the hook returns immediately. The main AI starts responding right away. Tips arrive later as a background result.
 
 ## Logging
 
