@@ -11,7 +11,7 @@ independently per agent runtime. Each agent port is a self-contained instance.
 
 - **Responsibility**: Detect user message language, evaluate writing quality
   via LLM, and display improvement tips without polluting conversation context.
-- **Spec**: `openspec/changes/add-lang-tutor-plugin/specs/lang-tutor-plugin/spec.md` and `openspec/changes/add-lang-tutor-plugin/specs/iso639-normalize/spec.md`
+- **Spec**: `openspec/changes/add-lang-tutor-opencode/specs/lang-tutor-plugin/spec.md` and `openspec/changes/add-lang-tutor-opencode/specs/iso639-normalize/spec.md`
 - **Key Entities**:
   - `LangTutorPlugin` — Plugin entry point, registers `chat.message` hook, orchestrates pipeline
   - `PluginConfig` — Runtime configuration (enabled, nativeLanguages, forcedLanguage, displayMethod, mode)
@@ -98,5 +98,5 @@ Record lastTipTime, add messageID to dedup cache
 | Date | Change | Description |
 |------|--------|-------------|
 | 2026-05-30 | init-profile | Initial architecture canvas — single-plugin, single-context topology |
-| 2026-05 | add-lang-tutor-plugin | Added first agent plugin implementation; established hook-based data flow pattern |
+| 2026-05 | add-lang-tutor-opencode | Added OpenCode agent plugin implementation; established hook-based data flow pattern |
 | 2026-05-31 | switch-to-chat-message-hook | Migrated from tool.execute.before to chat.message hook; added ISO 639 normalization; removed unbounded processedMessages Set |

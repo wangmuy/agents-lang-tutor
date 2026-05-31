@@ -37,12 +37,12 @@ LLM API, agent plugin SDK.
 
 ### Implemented Capabilities
 
-No BDD specs exist in `openspec/specs/` yet. Capabilities are inferred from the
-codebase:
+BDD specs exist in `openspec/changes/add-lang-tutor-opencode/specs/`:
 
 | Capability | Source | Description |
 |-----------|--------|-------------|
 | Lang-Tutor Plugin (OpenCode) | `.opencode/plugin/lang-tutor/index.ts` | Detects user message language via franc-min, strips code blocks, sends to LLM writing coach, displays tip inline or as notification |
+| ISO 639 Normalization | `normalizeTo6393()`, `resolveForcedLanguageName()` | Normalizes nativeLanguages/forcedLanguage config to ISO 639-3; resolves language names for system prompt |
 | Code Block Stripping | `stripCodeBlocks()` | Replaces fenced blocks and inline code with `[CODE BLOCK]` / `[CODE]` placeholders prior to language detection |
 | LLM Provider Resolution | `resolveProviderConfig()` | Discovers active model's baseURL and API key from agent config |
 | Two-Layer Language Gate | `detectLanguage()` + `fetchTip()` | Client-side franc-min detection skips API calls for native languages; LLM returns `[OK]` for well-written text as second gate |
@@ -55,7 +55,7 @@ No epics exist in `openspec/epics/`.
 
 | Change | Schema | Artifacts | Tasks | Status |
 |--------|--------|-----------|-------|--------|
-| add-lang-tutor-plugin | spec-driven-enhanced | spec, design, tasks | 31/32 | in-progress |
+| add-lang-tutor-opencode | spec-driven-enhanced | spec, design, tasks | 50/50 | complete |
 
 ## Quick Start
 
