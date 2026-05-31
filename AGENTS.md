@@ -9,7 +9,7 @@ See [README.md](./README.md) for project overview, usage, and configuration.
 | Agent | Directory | Status |
 |-------|-----------|--------|
 | OpenCode | `.opencode/plugin/` | Implemented |
-| Codex | `.codex/` | Planned |
+| Codex | `.codex/lang-tutor/` | Implemented |
 | Claude Code | `.claude/` | Planned |
 | pi | TBD | Planned |
 
@@ -25,6 +25,10 @@ See [README.md](./README.md) for project overview, usage, and configuration.
 ## OpenCode
 
 See [IMPL-OPENCODE.md](./IMPL-OPENCODE.md) for the full OpenCode implementation guide (hooks, SDK fetch, config, testing, display).
+
+## Codex
+
+Uses Codex's [hooks](https://developers.openai.com/codex/hooks) framework — specifically the `UserPromptSubmit` hook event. See [IMPL-CODEX.md](./IMPL-CODEX.md) for the full Codex implementation guide (hook registration, Python pipeline, LLM config resolution, ANSI toast display).
 
 ## Adding a new agent
 

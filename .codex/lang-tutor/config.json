@@ -1,0 +1,10 @@
+{
+  "enabled": true,
+  "nativeLanguages": [],
+  "forcedLanguage": null,
+  "cooldownMs": 10000,
+  "tipModel": null,
+  "displayMethod": "toast",
+  "toastDurationMs": 5000,
+  "mode": "sync"
+}
