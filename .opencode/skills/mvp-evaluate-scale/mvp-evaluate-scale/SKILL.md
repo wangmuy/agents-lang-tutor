@@ -64,6 +64,18 @@ Ecosystem> project. Want me to bootstrap the project?
   → Keep exploring
 ```
 
+Then, based on the scale assessment, recommend the next command:
+
+| Scale/State    | Next Command           |
+|----------------|------------------------|
+| No profile     | `/mvp:init-profile`    |
+| New initiative | `/mvp:create-epic`     |
+| Single MVP     | `/mvp:create-slice`    |
+| Simple fix     | `/opsx:propose`        |
+| External docs  | `/mvp:ingest`          |
+| Undocumented code | `/mvp:reverse`      |
+| Scale mismatch | `/mvp:upgrade`         |
+
 UX rule: If the user wants to create AGENTS.md, prefer the tool-native
 approach: `/init` in OpenCode. If CLI is unavailable, create
 `CLAUDE.md` manually with project conventions derived from the
@@ -105,6 +117,31 @@ I can bootstrap your project setup:
 ```
 
 ### Scenario C: Profile exists
+
+In addition to the standard scale assessment, check for staleness:
+
+```bash
+# Profile freshness — now in front matter
+head -10 openspec/project/profile.md | grep "last_auto_derived" 2>/dev/null
+
+# Vendor-spec freshness
+find openspec/vendor-specs -name "*.md" -mtime +60 2>/dev/null
+
+# Abandoned items
+ls openspec/epics/abandoned/ 2>/dev/null
+ls openspec/changes/abandoned/ 2>/dev/null
+```
+
+Include in the assessment report:
+
+```
+### Staleness Check
+| Artifact | Status |
+|----------|--------|
+| profile.md | ✓ fresh / ⚠ stale |
+| vendor-specs | ✓ fresh / ⚠ stale |
+| abandoned items | N (if >0: "Use /mvp:audit or /mvp:organize") |
+```
 
 Proceed to the standard 4-step scale assessment below.
 
@@ -374,4 +411,24 @@ After presenting recommendation, last option must be:
 - **Don't confuse code size with scale** — Large CRUD app with one stream is still Sketch/Blueprint.
 - **Explain the "why"** — Always show signal → scale mapping.
 - **Suggest `/opsx:explore` as follow-up** — If user wants to discuss before acting.
-- **Handle "this feels wrong"** — If user disagrees, discuss signals and adjust.
+- **Handle "this feels wrong"** — If user disagrees, discuss signals and adjust.## Help
+
+When invoked with `help` or `--help`:
+
+```
+/mvp:evaluate-scale — assess project scale + bootstrap
+
+Usage:
+  /mvp:evaluate-scale
+
+Scenarios (auto-detected):
+  Greenfield:  No profile + no changes → explore → offer to bootstrap profile + AGENTS.md
+  Brownfield:  No profile + has changes → scan code → offer to bootstrap
+  Bootstrapped: Profile exists → full scale assessment + staleness check
+
+The assessment checks: work stream count, repo count, bounded contexts,
+external vendors, dormant epics, stale profile, abandoned items.
+
+Examples:
+  /mvp:evaluate-scale
+```

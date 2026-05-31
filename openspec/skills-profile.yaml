@@ -179,6 +179,20 @@ suggestions:
       source: local
       when: during
       description: "Upgrade project scale with verification gate"
+
+  # mvp-audit — structural drift detection
+  mvp-audit:
+    - name: mvp-audit
+      source: local
+      when: during
+      description: "Scan project structure for standalone items and propose hierarchy fixes"
+
+  # mvp-organize — structural repair
+  mvp-organize:
+    - name: mvp-organize
+      source: local
+      when: during
+      description: "Execute structural reorganization: merge items into existing containers or create new ones"
   code-to-spec.reverse-engineering:
     - name: code-review
       source: community

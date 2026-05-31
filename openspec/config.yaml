@@ -74,6 +74,8 @@ context: |
   - `/mvp:ingest` — ingest external docs into BDD shadow specs
   - `/mvp:reverse` — reverse-engineer specs from undocumented code
   - `/mvp:upgrade` — upgrade project scale with verification gate
+  - `/mvp:audit` — scan for structural drift (standalone items, missing hierarchy)
+  - `/mvp:organize` — repair structure: merge items into containers or create new ones
   - `/opsx:explore` — explore ideas and crystallize into proposals
   - `/opsx:propose` — create change proposals with full artifacts
   - `/opsx:apply` — implement tasks from a change
@@ -81,6 +83,58 @@ context: |
 
   Reference: openspec/WORKFLOW.md (zoom model, bootstrap, walkthrough)
   ```
+
+  ## Periodic Staleness Checks
+
+  At the start of every session, after the bootstrap check, also check
+  for staleness:
+
+  ```bash
+  # Check profile freshness
+  if [ -f openspec/project/profile.md ]; then
+    grep "Last auto-derived" openspec/project/profile.md
+  fi
+
+  # Check vendor-spec freshness (last modified > 60 days ago)
+  if [ -d openspec/vendor-specs ]; then
+    find openspec/vendor-specs -name "*.md" -mtime +60 2>/dev/null
+  fi
+
+  # Check abandoned items
+  if [ -d openspec/epics/abandoned ] || [ -d openspec/changes/abandoned ]; then
+    echo "abandoned items found"
+    ls openspec/epics/abandoned/ 2>/dev/null
+    ls openspec/changes/abandoned/ 2>/dev/null
+  fi
+  ```
+
+  If any are stale, offer to refresh:
+
+  ```
+  I notice some project artifacts are stale:
+
+  <if profile "Last auto-derived" is more than 30 days ago>
+    ⚠ profile.md was last refreshed <date>.
+       → Run `/opsx:verify project-profile` to update.
+
+  <if vendor-spec files not modified in > 60 days>
+    ⚠ Some vendor-specs are >60 days old:
+       • openspec/vendor-specs/<name>/spec.md
+       → Run `/mvp:ingest` or `/mvp:reverse` to refresh.
+
+  <if abandoned items found>
+    ⚠ Found abandoned items:
+       • openspec/epics/abandoned/<name>
+       • openspec/changes/abandoned/<name>
+       → Run `/mvp:audit` to check for orphan references.
+       → Run `/mvp:organize` to reassign or clean up.
+  </if>
+  
+  Want me to refresh these, or skip for now?
+  ```
+
+  Present this ONCE at session start. If user declines, drop it.
+  Don't nag.
 
   ## Project Scale Selection
 
@@ -133,11 +187,22 @@ context: |
 
   /opsx:explore can be invoked ANYTIME, at ANY scale, mid-project.
   When exploration crystallizes an idea, it concludes with a
-  fit-level recommendation:
-    project-wide   — changes identity, architecture, or governance
-    new-epic       — spans multiple independent testable streams
-    vertical-slice — a single testable MVP (feature/infra/coordination)
-    simple-change  — straightforward spec-driven change
+  fit-level recommendation AND the corresponding next command:
+
+  | Fit Level     | Meaning                    | Next Command           |
+  |---------------|----------------------------|------------------------|
+  | project-wide  | Changes identity,          | `/mvp:evaluate-scale`  |
+  |               | architecture, or governance| or `/mvp:init-profile` |
+  | new-epic      | Spans multiple independent | `/mvp:create-epic`     |
+  |               | testable streams           |                        |
+  | vertical-slice| A single testable MVP      | `/mvp:create-slice`    |
+  |               | (feature/infra/coordination)|                        |
+  | simple-change | Straightforward spec-driven| `/opsx:propose`        |
+  |               | change                     |                        |
+
+  The fit-level recommendation MUST be accompanied by the specific
+  command. Do NOT just say "create a change" — tell the user exactly
+  which command to run.
 
   ## TODO.md Triage
 
@@ -166,7 +231,8 @@ context: |
     ☐ simple-change  — straightforward spec-driven change
   **Recommended schema**: [based on current scale + fit level]
   **Why this level**: [rationale — why not higher or lower]
-  **Next step**: Create the recommended artifact or keep exploring.
+  **Next command**: `/<mvp|opsx>:<command>` (use the fit-level→command table above)
+  **Alternatively**: Keep exploring if you want more clarity.
   """
 
   ## UX Rule

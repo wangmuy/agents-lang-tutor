@@ -1,20 +1,22 @@
+---
+# Slice proposal front matter. Status is the single source of truth.
+status: active       # active | done | abandoned | deprecated
+parent_epic: null    # epic slug (e.g., "2025-05-auth") or null for standalone
+abandoned:
+  reason: ""
+  date: ""
+  replaced_by: ""
+---
 # Slice Proposal: <!-- Slice Name -->
 
 <!-- ## Fit-Level Context
-
      This slice was assessed as a vertical-slice (testable MVP).
-     If scope expands during implementation, re-assess via /opsx:explore:
-     May need to upgrade to a new-epic or remain as vertical-slice.
-
-     ## TODO.md Triage
-
-     Emergent ideas go in this change's TODO.md.
-     AI scans periodically and surfaces: "Promote to task/change or dismiss?"
-  -->
+     If scope expands during implementation, re-assess via /opsx:explore. -->
 
 ## Parent Epic
 
-<!-- Link to openspec/epics/YYYY-MM-<slug>/epic.md, or "Standalone vertical slice." -->
+<!-- Link to openspec/epics/YYYY-MM-<slug>/epic.md, or "Standalone vertical slice."
+     Keep in sync with the front matter parent_epic field. -->
 
 ## Slice Type
 

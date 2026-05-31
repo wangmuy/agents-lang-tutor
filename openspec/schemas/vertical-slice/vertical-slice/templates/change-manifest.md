@@ -1,3 +1,7 @@
+---
+# Change manifest front matter.
+parent_epic: null    # epic slug or null for standalone slice
+---
 # Change Manifest: <!-- Slice Name -->
 
 ## Change Assignments

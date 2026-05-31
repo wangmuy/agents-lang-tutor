@@ -1,14 +1,21 @@
 ---
-description: Apply a vertical-slice change by implementing all its child changes
+name: mvp-apply-slice
+description: Apply a vertical-slice change by implementing all its child changes in dependency order. Tracks progress across the change-manifest and updates statuses as child changes are archived.
+license: MIT
+compatibility: Requires openspec CLI.
+metadata:
+  author: openspec
+  version: "1.0"
 ---
 
 Apply a vertical-slice change by iterating through its change-manifest
 and implementing each child change in order. Tracks progress across
 all child changes and updates the manifest.
 
-**Input**: Optionally specify a vertical-slice change name after
-`/mvp:apply-slice`. If omitted, check for active vertical-slice changes
-and let the user select.
+**When to use this skill:**
+- After creating a slice with `/mvp:create-slice`
+- Continuing work on a partially completed slice
+- Coordinating parallel changes in a vertical slice
 
 ---
 
@@ -72,7 +79,7 @@ For each ready child change:
 
 3. **When child change tasks are all done:**
    - Confirm contract adherence (outputs match stubs)
-   - Run `/opsx:archive` on the child change
+   - Archive the child change
    - Update change-manifest.md: mark child as `[x] Archived`
 
 4. **Move to next ready child change**
@@ -84,16 +91,12 @@ When all child changes are archived:
 ```
 ## Slice Complete: <slice-name>
 
-All 3/3 child changes archived ✓
+All child changes archived ✓
 
 ### Verification
 - [ ] All shared contracts satisfied
 - [ ] Integration tests pass (from integration test plan)
 - [ ] Slice acceptance criteria met (from slice-proposal)
-
-### Next
-Slice "<slice-name>" is done. Archive it or keep it for reference.
-The slice-proposal and change-manifest remain as permanent documentation.
 ```
 
 ### 6. Pause conditions
@@ -111,8 +114,7 @@ Pause the apply loop if:
 - Don't start a child change if its dependencies aren't met
 - Update change-manifest.md statuses immediately after archiving each child
 - The slice is "done" when ALL child changes are Archived — no partial success
-- If scope creeps, suggest updating the manifest rather than silently expanding
-## Help
+- If scope creeps, suggest updating the manifest rather than silently expanding## Help
 
 When invoked with `help` or `--help`:
 

@@ -110,3 +110,22 @@ Checklist:
 - Always include a rollback plan
 - Human review recommended before archiving the upgrade change
 - If current scale is unclear, suggest `/mvp:evaluate-scale` first
+## Help
+
+When invoked with `help` or `--help`:
+
+```
+/mvp:upgrade — migrate project to a higher scale
+
+Usage:
+  /mvp:upgrade [target-scale]
+
+If no target specified, detects current scale and recommends next step.
+
+Scale ladder:
+  Sketch → Blueprint → Modular → Ecosystem
+
+Examples:
+  /mvp:upgrade                       # detect + recommend
+  /mvp:upgrade Modular               # specific target
+```

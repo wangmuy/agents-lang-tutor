@@ -1,27 +1,31 @@
+---
+# Profile front matter. last_auto_derived is updated on each refresh.
+last_auto_derived: "<date>"
+---
 # Project Profile
 
-<!-- Last auto-derived: <date>. Run `/opsx:verify project-profile` to refresh.
-
+<!-- Run `/opsx:verify project-profile` to refresh.
+     
      Canonical reference: openspec/WORKFLOW.md
      (zoom model, bootstrap guide, walkthrough, upgrade paths)
-
+     
      ## Fan-Out Convention
-
+     
      If this file exceeds ~500 lines, split into sub-documents:
-
+     
      openspec/project/profile/
      ├── _index.md        # This file — summary + links to sub-docs
      ├── identity.md      # One-liner, tech stack, license, repo links
      ├── status.md        # Auto-derived dashboard (FULLY REPLACED on refresh)
      └── quickstart.md    # Getting started guide (PRESERVED across refreshes)
-
+     
      Rules:
      - _index.md is ALWAYS the entry point — AI agents read this first
      - Auto-refresh replaces auto-derived sub-docs in-place (e.g., status.md)
      - User-authored sub-docs are preserved across refreshes (e.g., quickstart.md)
      - Fan-out threshold: ~500 lines per file
      - After fan-out, the original file is replaced by the directory
---> (see fan-out section below) -->
+     -->
 
 ## Fan-Out Guide
 
@@ -65,7 +69,7 @@
 
 ### Active Epics
 
-<!-- Auto-derived from openspec/epics/. -->
+<!-- Auto-derived from openspec/epics/ (excluding abandoned/). -->
 
 | Epic | Created | Slices (done/total) | Status |
 |------|---------|---------------------|--------|
@@ -73,7 +77,7 @@
 
 ### In-Progress Changes
 
-<!-- Auto-derived from openspec/changes/ (non-archive). -->
+<!-- Auto-derived from openspec/changes/ (non-archive, non-abandoned). -->
 
 | Change | Schema | Artifacts | Tasks |
 |--------|--------|-----------|-------|

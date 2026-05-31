@@ -1,33 +1,37 @@
+---
+# Epic front matter. Status is the single source of truth.
+# Read with: head -10 epic.md | yq '.status'
+status: active       # active | dormant | done | abandoned | deprecated
+created: YYYY-MM
+abandoned:
+  reason: ""
+  date: ""
+  replaced_by: ""
+  impact: []
+---
 # Epic: <!-- Epic Title -->
 
-<!-- Created: YYYY-MM-DD
-     Directory: openspec/epics/YYYY-MM-<slug>/epic.md
-
+<!-- Directory: openspec/epics/YYYY-MM-<slug>/epic.md
+     
      ## Lifecycle
-
-     - Active: slices are being created or implemented
-     - Dormant (◌): no slice activity for 60 days — signal to revisit
-     - Completed (✓): all slices archived
-     - Epics are NEVER deleted — completed and dormant epics remain as
+     
+     - active: slices being created or implemented
+     - dormant (◌): no slice activity for 60 days → signal to revisit
+     - done (✓): all slices archived
+     - abandoned: formally closed, not completed (moved to abandoned/)
+     - deprecated: replaced by another epic (moved to abandoned/)
+     - Epics are NEVER deleted — abandoned and completed epics remain as
        historical records. The profile.md dashboard auto-marks dormancy.
-     - When dormant, team should decide: reactivate or formally close.
-
-     ## Fit-Level Decision (how to know if work belongs here)
-
-     Before creating this epic, verify that the work:
+     
+     ## Fit-Level Decision
+     
+     Before creating this epic, verify the work:
      1. Spans multiple independent testable streams (vertical slices)
      2. Cannot be achieved in a single vertical-slice or simple-change
      3. Does NOT change project identity or governance (that's project-wide)
-
+     
      If the scope is unclear, use /opsx:explore first.
-     Explorer concludes with: project-wide | new-epic | vertical-slice | simple-change
-
-     ## TODO.md Triage
-
-     Emergent ideas for future slices go in the "Future Ideas" section below
-     and in openspec/epics/<slug>/TODO.md. AI periodically scans these and
-     surfaces: "You have N items. Promote to a slice or dismiss?"
-     Items >90 days with no activity are flagged ◌ dormant. -->
+     Explorer concludes with: project-wide | new-epic | vertical-slice | simple-change -->
 
 ## Vision
 
@@ -38,7 +42,7 @@
 <!-- Each slice is independently testable and shippable.
      Types: Feature (user-facing), Infrastructure (build/devops),
      Coordination (integration).
-
+     
      Status: [ ] Planned / [~] In Progress / [x] Done
      Derived from scanning openspec/changes/. -->
 

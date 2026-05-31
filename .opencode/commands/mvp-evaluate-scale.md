@@ -58,6 +58,18 @@ Ecosystem> project. Want me to bootstrap the project?
   → Keep exploring
 ```
 
+Then, based on the scale assessment, recommend the next command:
+
+| Scale/State    | Next Command           |
+|----------------|------------------------|
+| No profile     | `/mvp:init-profile`    |
+| New initiative | `/mvp:create-epic`     |
+| Single MVP     | `/mvp:create-slice`    |
+| Simple fix     | `/opsx:propose`        |
+| External docs  | `/mvp:ingest`          |
+| Undocumented code | `/mvp:reverse`      |
+| Scale mismatch | `/mvp:upgrade`         |
+
 UX rule: If the user wants to create AGENTS.md, prefer the tool-native
 approach: `/init` in OpenCode. If CLI is unavailable, create
 `CLAUDE.md` manually with project conventions derived from the
@@ -99,6 +111,46 @@ I can bootstrap your project setup:
 ```
 
 ### Scenario C: Profile exists
+
+In addition to the standard scale assessment, check for staleness:
+
+```bash
+# Profile freshness — now in front matter
+head -10 openspec/project/profile.md | grep "last_auto_derived" 2>/dev/null
+
+# Vendor-spec freshness
+find openspec/vendor-specs -name "*.md" -mtime +60 2>/dev/null
+
+# Abandoned items
+ls openspec/epics/abandoned/ 2>/dev/null && echo "abandoned epics found"
+ls openspec/changes/abandoned/ 2>/dev/null && echo "abandoned changes found"
+
+# Dormant epics — scan epic front matter
+for epic in openspec/epics/*/; do
+  [ -d "$epic" ] || continue
+  [ "$(basename $epic)" = "abandoned" ] && continue
+  head -10 "$epic/epic.md" | grep "status.*active\|status.*dormant" 2>/dev/null
+done
+```
+
+Include in the assessment report:
+
+```
+### Staleness Check
+
+| Artifact | Last Updated | Status |
+|----------|-------------|--------|
+| profile.md | <date> | ✓ fresh / ⚠ stale (>30 days) |
+| vendor-specs/ | <date> | ✓ fresh / ⚠ stale (>60 days) |
+| abandoned epics | N | (if >0: "Found — use /mvp:audit or /mvp:organize") |
+| abandoned changes | N | (if >0) |
+
+<If any stale:>
+Refresh with:
+  → `/opsx:verify project-profile` for profile
+  → `/mvp:ingest` or `/mvp:reverse` for vendor-specs
+</if>
+```
 
 Proceed to the standard 4-step scale assessment below.
 
@@ -369,3 +421,24 @@ Last option after recommendation must be: "Other — discuss further or override
 - **Explain the "why"** — Always show signal → scale mapping
 - **Suggest `/opsx:explore` as follow-up** — If user wants to discuss before acting
 - **Handle "this feels wrong"** — Discuss and adjust signals
+## Help
+
+When invoked with `help` or `--help`:
+
+```
+/mvp:evaluate-scale — assess project scale + bootstrap
+
+Usage:
+  /mvp:evaluate-scale
+
+Scenarios (auto-detected):
+  Greenfield:  No profile + no changes → explore → offer to bootstrap profile + AGENTS.md
+  Brownfield:  No profile + has changes → scan code → offer to bootstrap
+  Bootstrapped: Profile exists → full scale assessment + staleness check
+
+The assessment checks: work stream count, repo count, bounded contexts,
+external vendors, dormant epics, stale profile, abandoned items.
+
+Examples:
+  /mvp:evaluate-scale
+```

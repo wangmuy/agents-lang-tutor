@@ -1,13 +1,21 @@
 ---
-description: Create a vertical-slice change with auto-scaffolded child changes
+name: mvp-create-slice
+description: Create a vertical-slice change with auto-scaffolded child changes. Generates slice-proposal, change-manifest with contract stubs, and scaffolds each spec-driven child change.
+license: MIT
+compatibility: Requires openspec CLI.
+metadata:
+  author: openspec
+  version: "1.0"
 ---
 
 Create a vertical-slice change that decomposes into multiple spec-driven
 implementation changes. Generates slice-proposal.md, change-manifest.md,
 and auto-scaffolds each child change.
 
-**Input**: Optionally specify a slice name (kebab-case) or description after
-`/mvp:create-slice`. If omitted, the AI will ask.
+**When to use this skill:**
+- Planning a new feature MVP that spans multiple components
+- Decomposing an epic slice into implementable changes
+- Coordinating parallel development with shared contracts
 
 ---
 
@@ -43,8 +51,7 @@ This scaffolds `openspec/changes/<name>/` with `.openspec.yaml`.
 
 ### 4. Create slice-proposal
 
-Use `openspec instructions slice-proposal --change "<name>" --json` to get
-the template + instruction. Start with YAML front matter:
+Use the slice-proposal template. Start with YAML front matter:
 
 ```yaml
 ---
@@ -67,7 +74,7 @@ Then populate:
 
 ### 5. Create change-manifest — decompose into child changes
 
-User the AskUserQuestion tool to decompose the slice:
+Use the AskUserQuestion tool to decompose the slice:
 
 "To implement this slice, how should we break it down into changes?
 Each change is a spec-driven implementation unit owned by one repo.
@@ -92,12 +99,8 @@ For each change assignment in the manifest:
 openspec new change "<child-name>" --schema spec-driven-enhanced
 ```
 
-Then write a minimal `proposal.md` for each child change:
-```
-## Parent Context
-- Slice: openspec/changes/<slice-name>/
-- Responsibility: <from manifest>
-```
+Then write a minimal `proposal.md` for each child change referencing the
+parent slice and the child's responsibility per the manifest.
 
 Finally, update the change-manifest to mark each change as `[~] Created`.
 
@@ -114,7 +117,6 @@ Finally, update the change-manifest to mark each change as `[~] Created`.
 ### Shared Contracts
 | Name | Protocol | Spec |
 |------|----------|------|
-| <name> | POST /api/... | {...} |
 
 ### Next step
 /mvp:apply-slice <slice-name>  — to implement all child changes
@@ -126,8 +128,7 @@ Finally, update the change-manifest to mark each change as `[~] Created`.
 - Contract stubs must be PRECISE — endpoint, method, request body, response body, error codes
 - Child change names must be unique kebab-case
 - Each child change gets `spec-driven-enhanced` schema (for traceability + blast radius)
-- Update change-manifest statuses as child changes are created
-## Help
+- Update change-manifest statuses as child changes are created## Help
 
 When invoked with `help` or `--help`:
 

@@ -94,3 +94,21 @@ openspec/vendor-specs/<module-name>/spec.md
 - Distinguish between observed behavior and inferred intent
 - Flag dead code and ambiguous paths explicitly
 - Spec promotion requires human review — never auto-promote
+## Help
+
+When invoked with `help` or `--help`:
+
+```
+/mvp:reverse — reverse-engineer specs from undocumented code
+
+Usage:
+  /mvp:reverse [path-or-module]
+
+Workflow:
+  reverse-engineering → fidelity-report → vendor-specs/<module>/spec.md
+
+Examples:
+  /mvp:reverse                          # prompt for paths
+  /mvp:reverse src/auth/                # specific source dir
+  /mvp:reverse backend/db               # module name
+```
