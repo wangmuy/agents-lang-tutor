@@ -270,6 +270,7 @@ rules:
     - Include parent context (epic/slice link or "Standalone change")
     - Define explicit In Scope / Out of Scope boundaries
     - Plan [REQ-XXX] traceability IDs for new capabilities
+    - Scope coherence: ensure all modifications are in the same domain/bounded context. If the change spans multiple domains/repos, recommend /mvp:create-slice instead of bundling into one change.
   design:
     - Document key decisions as ADRs (Context, Decision, Alternatives, Consequences)
     - Include Negative Constraints section (what MUST NOT change)
