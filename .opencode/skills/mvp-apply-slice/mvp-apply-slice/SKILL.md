@@ -108,6 +108,8 @@ Pause the apply loop if:
 - A child change needs scope re-evaluation (suggest `/opsx:explore`)
 
 ## Guardrails
+**Skills**: Check `openspec/skills-profile.yaml` for suggested community
+skills under key `mvp-apply-slice`. Offer to load them — user decides.
 
 - Always process in dependency order (respect "Depends On" column)
 - Check each child change for contract adherence before archiving

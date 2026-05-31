@@ -70,6 +70,8 @@ openspec/vendor-specs/<module-name>/spec.md
 ```
 
 ## Guardrails
+**Skills**: Check `openspec/skills-profile.yaml` for suggested community
+skills under key `mvp-reverse`. Offer to load them — user decides.
 
 - Shadow specs are REFERENCE ONLY — do NOT participate in delta merge
 - Report what the code ACTUALLY DOES, not what it should do

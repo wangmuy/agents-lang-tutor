@@ -14,6 +14,8 @@ create new containers from clustered items.
 
 ---
 
+**Skills**: Check `openspec/skills-profile.yaml` for suggested community
+skills under key `mvp-organize`. Offer to load them — user decides.
 ## Steps
 
 ### 1. Run scan (or use cached audit)

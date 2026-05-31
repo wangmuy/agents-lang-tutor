@@ -13,6 +13,8 @@ Read-only. Never modifies files.
 
 ---
 
+**Skills**: Check `openspec/skills-profile.yaml` for suggested community
+skills under key `mvp-audit`. Offer to load them — user decides.
 ## Steps
 
 ### 1. Scan project state

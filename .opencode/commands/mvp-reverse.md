@@ -10,6 +10,8 @@ after `/mvp:reverse`. Example: `/mvp:reverse src/auth/` or `/mvp:reverse backend
 
 ---
 
+**Skills**: Check `openspec/skills-profile.yaml` for suggested community
+skills under key `mvp-reverse`. Offer to load them — user decides.
 ## Steps
 
 ### 1. Gather source scope

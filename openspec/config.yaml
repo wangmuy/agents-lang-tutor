@@ -186,6 +186,12 @@ context: |
   ## Explorer Convention
 
   /opsx:explore can be invoked ANYTIME, at ANY scale, mid-project.
+
+  **Community skills**: Before or during exploration, check
+  `openspec/skills-profile.yaml` → `suggestions.exploration` for
+  community skills (e.g., grill-me, brainstorm). Offer to load them.
+  They are SUGGESTIONS only — the user decides whether to use them.
+
   When exploration crystallizes an idea, it concludes with a
   fit-level recommendation AND the corresponding next command:
 
@@ -216,6 +222,25 @@ context: |
 
   AI surfaces: "You have N items. Promote to <level> or dismiss?"
   Items >90 days inactive are flagged ◌ dormant.
+
+  ## Community Skills
+
+  `openspec/skills-profile.yaml` defines skill suggestions for each
+  workflow step. Key format: `schema-id.artifact-id` or `exploration`.
+
+  Schemas reference it (via schema.yaml), and the AI should check it
+  at the start of relevant workflow steps. Only active (uncommented)
+  entries are available — commented entries are examples.
+
+  When running any workflow step, check `openspec/skills-profile.yaml`
+  for the corresponding key. If active skills are found, offer to load
+  them:
+  - Before creating: `before_creation` skills
+  - During work: `during` skills
+  - After creation: `after_creation` skills
+
+  Skills are SUGGESTIONS only — the user decides whether to load them.
+  If no active skills are found for a key, don't mention it.
 
   ## Exploration Output Template
 

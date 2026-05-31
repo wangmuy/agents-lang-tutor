@@ -67,6 +67,8 @@ openspec/vendor-specs/<source-name>/spec.md
 ```
 
 ## Guardrails
+**Skills**: Check `openspec/skills-profile.yaml` for suggested community
+skills under key `mvp-ingest`. Offer to load them — user decides.
 
 - Shadow specs are REFERENCE ONLY — do NOT participate in delta merge
 - Always mark extractions with confidence level

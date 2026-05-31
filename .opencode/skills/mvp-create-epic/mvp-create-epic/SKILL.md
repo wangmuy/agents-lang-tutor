@@ -83,6 +83,8 @@ Next: /mvp:create-slice <slice-name> for each slice
 ```
 
 ## Guardrails
+**Skills**: Check `openspec/skills-profile.yaml` for suggested community
+skills under key `mvp-create-epic`. Offer to load them — user decides.
 
 - Choose the current month for the date prefix (YYYY-MM)
 - Slices MUST be business-behavior MVPs, not tech-stack assignments

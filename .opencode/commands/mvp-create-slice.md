@@ -11,6 +11,8 @@ and auto-scaffolds each child change.
 
 ---
 
+**Skills**: Check `openspec/skills-profile.yaml` for suggested community
+skills under key `mvp-create-slice`. Offer to load them — user decides.
 ## Steps
 
 ### 1. Check existing epics

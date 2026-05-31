@@ -123,6 +123,8 @@ Finally, update the change-manifest to mark each change as `[~] Created`.
 ```
 
 ## Guardrails
+**Skills**: Check `openspec/skills-profile.yaml` for suggested community
+skills under key `mvp-create-slice`. Offer to load them — user decides.
 
 - Always ask about parent epic before creating — don't assume standalone
 - Contract stubs must be PRECISE — endpoint, method, request body, response body, error codes

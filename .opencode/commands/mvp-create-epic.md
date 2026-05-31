@@ -10,6 +10,8 @@ and are tracking artifacts — never archived.
 
 ---
 
+**Skills**: Check `openspec/skills-profile.yaml` for suggested community
+skills under key `mvp-create-epic`. Offer to load them — user decides.
 ## Steps
 
 ### 1. Gather epic vision

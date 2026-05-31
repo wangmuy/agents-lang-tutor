@@ -9,6 +9,8 @@ that generates into `openspec/project/` (permanent, never archived).
 
 ---
 
+**Skills**: Check `openspec/skills-profile.yaml` for suggested community
+skills under key `mvp-init-profile`. Offer to load them — user decides.
 ## Steps
 
 ### 1. Detect project state

@@ -92,6 +92,9 @@ apply:
 
     The ingest change can be archived — outputs persist independently.
 
+    Before creating, check `openspec/skills-profile.yaml`
+    for suggested skills (key: `external-ingest.gap-analysis`).
+
     ## UX Rule
 
     When presenting choices (source types, risk levels, recommended actions),

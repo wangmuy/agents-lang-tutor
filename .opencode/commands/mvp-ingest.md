@@ -9,6 +9,8 @@ into OpenSpec-compatible BDD shadow specs with gap analysis.
 
 ---
 
+**Skills**: Check `openspec/skills-profile.yaml` for suggested community
+skills under key `mvp-ingest`. Offer to load them — user decides.
 ## Steps
 
 ### 1. Gather sources

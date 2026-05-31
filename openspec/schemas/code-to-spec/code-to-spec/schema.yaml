@@ -82,3 +82,6 @@ apply:
 
     When presenting choices (files to analyze, promotion candidates),
     always include "Other — write your own" as the LAST option.
+
+    Before starting, check `openspec/skills-profile.yaml`
+    for suggested skills (key: `code-to-spec.reverse-engineering`).

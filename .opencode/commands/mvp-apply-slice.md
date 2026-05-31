@@ -12,6 +12,8 @@ and let the user select.
 
 ---
 
+**Skills**: Check `openspec/skills-profile.yaml` for suggested community
+skills under key `mvp-apply-slice`. Offer to load them — user decides.
 ## Steps
 
 ### 1. Select the slice change

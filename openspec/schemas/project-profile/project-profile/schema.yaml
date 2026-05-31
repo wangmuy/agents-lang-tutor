@@ -156,6 +156,10 @@ apply:
 
     To refresh status, re-create the profile artifact.
 
+    Before creating, check `openspec/skills-profile.yaml`
+    for suggested skills (keys: `project-profile.proposal`,
+    `project-profile.constitution`).
+
     ## Scale Assessment
 
     When creating the profile, assess the project scale:

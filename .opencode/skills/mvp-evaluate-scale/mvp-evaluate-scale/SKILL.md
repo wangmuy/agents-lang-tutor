@@ -45,7 +45,13 @@ ls AGENTS.md CLAUDE.md 2>/dev/null && HAS_INSTRUCTIONS=true || HAS_INSTRUCTIONS=
 ```
 
 Explore freely. Listen for signals about the project identity, domains,
-tech stack, scale indicators. When things crystallize, offer:
+tech stack, scale indicators.
+
+**Check skills**: Check `openspec/skills-profile.yaml` for suggested
+skills under the `exploration` key. Offer to load any that exist —
+skills are SUGGESTIONS only, user decides.
+
+When things crystallize, offer:
 
 ```
 Based on what we discussed, this looks like a <Sketch/Blueprint/Modular/

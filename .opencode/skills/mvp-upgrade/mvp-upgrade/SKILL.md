@@ -59,6 +59,8 @@ Acceptance test: create test change, verify AI reads constitution/architecture.
 Current → Target. New artifacts installed. Verification passed.
 
 ## Guardrails
+**Skills**: Check `openspec/skills-profile.yaml` for suggested community
+skills under key `mvp-upgrade`. Offer to load them — user decides.
 
 - Upgrade is ADDITIVE — existing work is NEVER touched
 - Verify before completing

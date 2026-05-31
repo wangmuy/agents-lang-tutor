@@ -85,6 +85,8 @@ Next: /mvp:evaluate-scale to assess scale
 ```
 
 ## Guardrails
+**Skills**: Check `openspec/skills-profile.yaml` for suggested community
+skills under key `mvp-init-profile`. Offer to load them — user decides.
 
 - Constitution rules must be SPECIFIC and TESTABLE
 - Profile status MUST be auto-derived from filesystem scan

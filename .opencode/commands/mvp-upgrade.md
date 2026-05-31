@@ -10,6 +10,8 @@ If omitted, the command detects current scale and recommends next.
 
 ---
 
+**Skills**: Check `openspec/skills-profile.yaml` for suggested community
+skills under key `mvp-upgrade`. Offer to load them — user decides.
 ## Steps
 
 ### 1. Detect current scale
