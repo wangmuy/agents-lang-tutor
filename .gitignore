@@ -16,3 +16,4 @@ opencode.json
 .claude/*
 !.claude/commands/
 !.claude/skills/
+
