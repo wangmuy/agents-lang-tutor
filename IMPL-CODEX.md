@@ -88,6 +88,7 @@ All paths incorporate `session_id` from the hook input to prevent interference b
   "forcedLanguage": null,
   "cooldownMs": 10000,
   "tipModel": null,
+  "wireApi": null,
   "displayMethod": "toast",
   "toastDurationMs": 5000,
   "mode": "sync"
@@ -105,6 +106,13 @@ The hook auto-discovers the active LLM provider config by scanning Codex config 
 3. **Profile** `~/.codex/*.config.toml` (e.g. `cliproxyapi.config.toml`)
 
 `model_providers` sections are merged, later overwriting earlier. The active `model_provider` name is resolved to its `base_url` and `env_key`, and the API key is read from the corresponding environment variable.
+
+The `wire_api` field from the TOML config (e.g. `wire_api = "responses"`) controls the API endpoint and payload format. If `wireApi` is set in config.json, it overrides the TOML value. Falls back to `"chat"` (Chat Completions).
+
+| `wireApi` value | Endpoint | Payload format |
+|-----------------|----------|----------------|
+| `"chat"` (default) | `/v1/chat/completions` | `messages` array with system/user roles |
+| `"responses"` | `/v1/responses` | `instructions` + `input` (OpenAI Responses API) |
 
 The model name used for tips is resolved by priority:
 1. `tipModel` from config.json (if set)

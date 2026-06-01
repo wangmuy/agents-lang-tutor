@@ -192,6 +192,7 @@ def load_plugin_config() -> dict:
         "forcedLanguage": cfg.get("forcedLanguage"),
         "cooldownMs": cfg.get("cooldownMs", 10000),
         "tipModel": cfg.get("tipModel"),
+        "wireApi": cfg.get("wireApi"),
         "displayMethod": cfg.get("displayMethod", "toast"),
         "toastDurationMs": cfg.get("toastDurationMs", 5000),
     }
@@ -255,10 +256,12 @@ def resolve_codex_llm_config() -> dict | None:
         base_url = info.get("base_url", "")
         env_key = info.get("env_key", "")
         api_key = os.environ.get(env_key, "") if env_key else ""
+        wire_api = info.get("wire_api", "")
         return {
             "base_url": base_url.rstrip("/") + "/chat/completions" if base_url else None,
             "api_key": api_key,
             "model": model or "",
+            "wire_api": wire_api or "",
         }
 
     # Fallback: first provider with base_url
@@ -267,10 +270,12 @@ def resolve_codex_llm_config() -> dict | None:
         env_key = info.get("env_key", "")
         api_key = os.environ.get(env_key, "") if env_key else ""
         if base_url:
+            wire_api = info.get("wire_api", "")
             return {
                 "base_url": base_url.rstrip("/") + "/chat/completions",
                 "api_key": api_key,
                 "model": model or "",
+                "wire_api": wire_api or "",
             }
 
     return None
@@ -302,8 +307,14 @@ def fetch_tip(
     system_prompt: str,
     user_text: str,
     timeout: float = 10.0,
+    wire_api: str = "chat",
 ) -> str | None:
-    """Call the LLM and return the tip text, or None on failure."""
+    """Call the LLM and return the tip text, or None on failure.
+
+    wire_api controls the API format:
+      "chat"       → POST /chat/completions with messages array
+      "responses"  → POST /responses with input + instructions (OpenAI Responses API)
+    """
     if not base_url or not model:
         log("ERROR", "fetch_tip: missing base_url or model", {"base_url": base_url, "model": model})
         return None
@@ -314,32 +325,57 @@ def fetch_tip(
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
 
-    body = json.dumps({
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_text},
-        ],
-        "max_tokens": 200,
-        "temperature": 0.3,
-    }).encode("utf-8")
+    # Determine endpoint and body shape
+    if wire_api == "responses":
+        # OpenAI Responses API: POST /v1/responses
+        endpoint = base_url.replace("/chat/completions", "/responses")
+        payload = {
+            "model": model,
+            "instructions": system_prompt,
+            "input": user_text,
+            "max_output_tokens": 200,
+            "temperature": 0.3,
+        }
+        extract_content = lambda data: (
+            data.get("output_text", "") or
+            (data.get("output", [{}])[0] or {}).get("content", "") or
+            ""
+        )
+    else:
+        # Default: Chat Completions API: POST /v1/chat/completions
+        endpoint = base_url
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_text},
+            ],
+            "max_tokens": 200,
+            "temperature": 0.3,
+        }
+        extract_content = lambda data: (
+            data.get("choices", [{}])[0]
+            .get("message", {})
+            .get("content", "")
+            .strip()
+        )
 
-    # Try without reasoning first
+    body = json.dumps(payload).encode("utf-8")
+
     try:
         req = urllib.request.Request(
-            base_url,
+            endpoint,
             data=body,
             headers=headers,
             method="POST",
         )
         resp = urllib.request.urlopen(req, timeout=timeout)
         data = json.loads(resp.read())
-        choice = data.get("choices", [{}])[0]
-        content = choice.get("message", {}).get("content", "").strip()
+        content = extract_content(data)
         if content:
             return content
     except (urllib.error.URLError, json.JSONDecodeError, OSError) as e:
-        log("WARN", "fetch_tip: request failed", {"error": str(e)[:120]})
+        log("WARN", "fetch_tip: request failed", {"error": str(e)[:120], "wire_api": wire_api})
 
     return None
 
@@ -502,12 +538,16 @@ def main():
     system_prompt = build_system_prompt(config)
 
     # Fetch tip
+    # Resolve wireApi: config.json wireApi > TOML wire_api > default "chat"
+    wire_api = config["wireApi"] or llm_config.get("wire_api", "") or "chat"
+
     tip = fetch_tip(
         llm_config["base_url"],
         llm_config.get("api_key", ""),
         model,
         system_prompt,
         stripped,
+        wire_api=wire_api,
     )
 
     if tip and not tip.strip().upper().startswith("[OK]"):

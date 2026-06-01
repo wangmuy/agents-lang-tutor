@@ -6,5 +6,6 @@
   "tipModel": null,
   "displayMethod": "toast",
   "toastDurationMs": 5000,
-  "mode": "sync"
+  "mode": "sync",
+  "wireApi": null
 }

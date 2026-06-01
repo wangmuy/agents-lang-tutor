@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.codex/lang-tutor/hook.py\"",
+            "statusMessage": "Checking text for writing tips",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
