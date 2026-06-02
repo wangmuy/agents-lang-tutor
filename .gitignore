@@ -1,6 +1,7 @@
 tmp/
 temp/
 reference/
+__pycache__/
 
 opencode.json
 .opencode/*
@@ -16,4 +17,5 @@ opencode.json
 .claude/*
 !.claude/commands/
 !.claude/skills/
+!.claude/lang-tutor/
 

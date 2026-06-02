@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "nativeLanguages": [],
+  "forcedLanguage": null,
+  "cooldownMs": 10000,
+  "tipModel": null,
+  "displayMethod": "stderr",
+  "toastDurationMs": 5000,
+  "mode": "sync",
+  "baseUrl": null,
+  "wireApi": null
+}

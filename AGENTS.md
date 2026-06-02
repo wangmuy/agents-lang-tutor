@@ -10,7 +10,7 @@ See [README.md](./README.md) for project overview, usage, and configuration.
 |-------|-----------|--------|
 | OpenCode | `.opencode/plugin/` | Implemented |
 | Codex | `.codex/lang-tutor/` | Implemented |
-| Claude Code | `.claude/` | Planned |
+| Claude Code | `.claude/lang-tutor/` | Implemented |
 | pi | TBD | Planned |
 
 ## Tooling
@@ -38,3 +38,7 @@ See [README.md — Adding a new agent](./README.md#adding-a-new-agent) for the h
 - How to retrieve user message text (event payload vs API fetch)?
 - How to display inline output to the user?
 - How to access the agent's active LLM config (model, provider, API key)?
+
+## Claude Code
+
+See [IMPL-CLAUDE.md](./IMPL-CLAUDE.md) for the full Claude Code implementation guide (hook registration, config, display methods, LLM config resolution).
