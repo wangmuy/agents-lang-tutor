@@ -4,7 +4,7 @@ A language writing-tutor plugin for coding agents. After each user message, it d
 
 ## How it works
 
-1. On each user message, the plugin detects the language (via LLM for Codex, via fran­c-min for OpenCode)
+1. On each user message, the plugin detects the language (via LLM for Codex and Claude Code, via fran­c-min for OpenCode)
 2. Strips code blocks/inline code so language detection focuses on natural text
 3. Sends the text to an LLM configured as a writing coach (via Chat Completions or Responses API)
 4. If the LLM finds an issue, displays a short tip (<25 words) via toast or inline prompt
@@ -16,10 +16,10 @@ A language writing-tutor plugin for coding agents. After each user message, it d
 |-------|-----------|--------|
 | OpenCode | `.opencode/plugin/lang-tutor/` | Implemented |
 | Codex | `.codex/lang-tutor/` | Implemented |
-| Claude Code | `.claude/` | Planned |
+| Claude Code | `.claude/lang-tutor/` | Implemented |
 | pi | TBD | Planned |
 
-Each agent gets a self-contained plugin adapted to its hook/plugin system. See [IMPL-OPENCODE.md](./IMPL-OPENCODE.md) for the OpenCode implementation guide.
+Each agent gets a self-contained plugin adapted to its hook/plugin system. See agent-specific guides: [IMPL-OPENCODE.md](./IMPL-OPENCODE.md), [IMPL-CODEX.md](./IMPL-CODEX.md), [IMPL-CLAUDE.md](./IMPL-CLAUDE.md).
 
 ## Configuration (OpenCode)
 
@@ -128,6 +128,90 @@ codex --dangerously-bypass-hook-trust
 ### Logs
 
 Diagnostics go to `/tmp/lang-tutor-{session_id}.log` (per-session). Uses the same base path as OpenCode for consistency.
+
+## Configuration (Claude Code)
+
+Uses Claude Code's [hooks](https://code.claude.com/en/hooks-guide) framework. The hook is registered on the `UserPromptSubmit` event in `.claude/settings.local.json` and fires on every user message.
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `.claude/settings.local.json` | Declares the `UserPromptSubmit` hook binding |
+| `.claude/lang-tutor/hook.py` | Hook script — Python 3 stdlib, no dependencies |
+| `.claude/lang-tutor/config.json` | Runtime configuration (live-read) |
+
+### Config options
+
+Edit `.claude/lang-tutor/config.json`:
+
+```json
+{
+  "enabled": true,
+  "nativeLanguages": [],
+  "forcedLanguage": null,
+  "cooldownMs": 10000,
+  "tipModel": null,
+  "displayMethod": "stderr",
+  "toastDurationMs": 5000,
+  "mode": "sync",
+  "baseUrl": null,
+  "wireApi": null
+}
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | bool | `true` | Enable/disable the hook (live, no restart needed) |
+| `nativeLanguages` | string[] | `[]` | ISO 639-1 or 639-3 codes. Tips are suppressed for detected native languages |
+| `forcedLanguage` | string \| null | `null` | Always coach in this language (ISO code or name like `"Spanish"`) |
+| `cooldownMs` | number | `10000` | Minimum ms between tips (10s default). Per-session via `/tmp/lang-tutor-cooldown-{session_id}` |
+| `tipModel` | string \| null | `null` | Model name override for tips. Falls back to env vars: `ANTHROPIC_DEFAULT_HAIKU_MODEL` → `ANTHROPIC_DEFAULT_SONNET_MODEL` → `ANTHROPIC_MODEL` → `ANTHROPIC_DEFAULT_OPUS_MODEL` |
+| `displayMethod` | `"stderr"` or `"systemMessage"` | `"stderr"` | Both map to `systemMessage` display (stderr not visible in Claude Code hooks) |
+| `toastDurationMs` | number | `5000` | Accepted for config portability (not used — systemMessage is persistent) |
+| `mode` | `"sync"` | `"sync"` | Accepted for config portability (`"async"` behaves same as sync for systemMessage) |
+| `baseUrl` | string \| null | `null` | Override API base URL (default: `$ANTHROPIC_BASE_URL` or `https://api.anthropic.com`) |
+| `wireApi` | string \| null | `null` | API wire format: `"messages"` (Anthropic Messages API, default) or `"chat"` (OpenAI-compatible Chat Completions) |
+
+### How it works
+
+```
+User types prompt → UserPromptSubmit hook fires (fresh subprocess)
+  ├─ hook.py reads config.json (live)
+  ├─ Strips ```blocks``` and `inline code` from prompt
+  ├─ Resolves LLM config: settings files → env vars → defaults
+  ├─ Calls the LLM (Anthropic Messages API or Chat Completions)
+  ├─ LLM responds: "Use 'implement' instead of 'actualize'" or just "[OK]"
+  ├─ Tips shown as: 💡 [Lang-Tip]: ...  (persistent systemMessage)
+  └─ Prompt is never blocked or modified — conversation history stays clean
+```
+
+### LLM config resolution
+
+The hook resolves credentials in this priority order:
+
+1. `.claude/settings.json` → `langTutor.apiKey`
+2. `~/.claude/settings.json` → `langTutor.apiKey`
+3. `ANTHROPIC_AUTH_TOKEN` env
+4. `ANTHROPIC_API_KEY` env
+5. Falls back silently (no tip) if none found
+
+Base URL: config `baseUrl` → `ANTHROPIC_BASE_URL` env → `https://api.anthropic.com`
+
+Model: config `tipModel` → `ANTHROPIC_DEFAULT_HAIKU_MODEL` env → `ANTHROPIC_DEFAULT_SONNET_MODEL` → `ANTHROPIC_MODEL` → `ANTHROPIC_DEFAULT_OPUS_MODEL` → `claude-sonnet-4-6`
+
+### First-time setup
+
+The hook is registered in `.claude/settings.local.json` (gitignored). To enable:
+
+1. The hook registration must be present (already added in this project)
+2. Ensure `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is set in your environment
+3. Start a new Claude Code session in the project directory
+4. Type a message and a 💡 [Lang-Tip] will appear if writing improvements are found
+
+### Logs
+
+Diagnostics go to `/tmp/lang-tutor-{session_id}.log` (per-session) and `/tmp/lang-tutor.log` (shared errors). Auto-rotated at 5MB.
 
 ## Adding a new agent
 

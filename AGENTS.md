@@ -15,12 +15,12 @@ See [README.md](./README.md) for project overview, usage, and configuration.
 
 ## Tooling
 
-- **Target runtime:** each coding agent's built-in JS/TS runtime (bun for OpenCode, Node for Claude Code, etc.)
-- **External dep:** `franc-min` for client-side language detection (ISO 639-3)
-- **LLM API:** varies per agent — OpenCode uses OpenAI-compatible `/chat/completions`, Claude Code uses Anthropic Messages API, others TBD
-- **No build step** — agents load TypeScript/JavaScript directly
+- **Target runtime:** each coding agent's built-in JS/TS runtime (bun for OpenCode, Node for Claude Code plugins) or Python (Claude Code hooks, Codex)
+- **External dep:** `franc-min` for client-side language detection (ISO 639-3) in OpenCode only
+- **LLM API:** varies per agent — OpenCode uses OpenAI-compatible `/chat/completions`, Codex uses Chat Completions or Responses API, Claude Code uses Anthropic Messages API by default
+- **No build step** — agents load TypeScript/JavaScript directly; Python hooks have no build step
 - **No test runner available** — bun not in PATH, no node test setup. Tests exist at `.opencode/plugin/lang-tutor/stripCodeBlocks.test.ts` but cannot be executed
-- **Hook:** OpenCode uses `chat.message` hook (fires once per user message)
+- **Hook:** OpenCode uses `chat.message` hook (fires once per user message); Codex and Claude Code use `UserPromptSubmit`
 
 ## OpenCode
 
